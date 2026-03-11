@@ -5,9 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GeoTrace — Analyzer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/animations.css">
   <link rel="stylesheet" href="/css/app.css">
+  <style>
+    /* ── FLOATING BACKGROUND IMAGES (like landing page) ── */
+    .bg-floats {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-float-img {
+      position: absolute;
+      border-radius: 16px;
+      opacity: 0.13;
+      filter: blur(1px) saturate(1.4);
+      animation: float-slow 8s ease-in-out infinite;
+    }
+    .bg-float-img:nth-child(1) { width: 220px; top: 8%;  left: 2%;  animation-duration: 7s; }
+    .bg-float-img:nth-child(2) { width: 180px; top: 55%; left: 5%;  animation-duration: 9s; animation-delay: -3s; }
+    .bg-float-img:nth-child(3) { width: 200px; top: 20%; right: 3%; animation-duration: 8s; animation-delay: -5s; }
+    .bg-float-img:nth-child(4) { width: 160px; top: 65%; right: 6%; animation-duration: 6s; animation-delay: -2s; }
+
+    /* ── AMBIENT ORBS ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+      animation: orb-drift-1 12s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; background: var(--violet); top: -150px; left: -100px; }
+    .orb-2 { width: 400px; height: 400px; background: var(--cyan);   bottom: -100px; right: -80px; animation-name: orb-drift-2; animation-duration: 15s; }
+    .orb-3 { width: 300px; height: 300px; background: var(--pink);   top: 40%; left: 40%; animation-name: orb-drift-3; animation-duration: 10s; }
+
+    /* ── LAYOUT ── */
+    .app-layout { position: relative; z-index: 1; }
+
+    /* ── PARTICLE CANVAS ── */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
+
+  <!-- Background effects -->
+  <canvas id="particle-canvas"></canvas>
+
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="bg-floats">
+    <img class="bg-float-img" src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400&q=60" alt="">
+    <img class="bg-float-img" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=60" alt="">
+    <img class="bg-float-img" src="https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=400&q=60" alt="">
+    <img class="bg-float-img" src="https://images.unsplash.com/photo-1555993539-1732b0258235?w=400&q=60" alt="">
+  </div>
 
   <div class="app-layout">
 
@@ -28,15 +90,11 @@
         <button class="nav-item" data-section="history">
           <span class="nav-item-icon">📊</span> My History
         </button>
-
         <div class="nav-separator"></div>
-
         <a class="nav-item nav-item-admin" id="admin-nav-item" href="/admin" style="display:none;">
           <span class="nav-item-icon">⚙️</span> Admin Panel
         </a>
-
         <div class="nav-separator"></div>
-
         <button class="nav-item nav-item-danger" id="btn-signout">
           <span class="nav-item-icon">🚪</span> Sign Out
         </button>
@@ -56,16 +114,12 @@
 
       <!-- SECTION: UPLOAD -->
       <div class="app-section active" id="section-upload">
-        <!-- API Key Bar -->
-        <div class="api-key-bar">
+
+        <!-- API Key Bar (hidden if key from server) -->
+        <div class="api-key-bar" id="api-key-bar-upload">
           <span class="api-key-label">🔑 API KEY</span>
-          <input
-            type="password"
-            class="api-key-input"
-            id="api-key-input"
-            placeholder="sk-ant-api03-… (never stored)"
-            autocomplete="off"
-          >
+          <input type="password" class="api-key-input" id="api-key-input"
+            placeholder="sk-ant-api03-… (never stored)" autocomplete="off">
           <a class="api-key-link" href="https://console.anthropic.com" target="_blank">Get key ↗</a>
         </div>
 
@@ -83,21 +137,21 @@
           </div>
         </div>
 
-        <!-- Quick Info -->
+        <!-- Feature Cards (animated like landing page) -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px;">
-          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
-            <div style="font-size:24px;margin-bottom:8px;">🛰️</div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">EXIF GPS</div>
+          <div class="glass reveal" style="padding:20px;text-align:center;animation-delay:0.1s">
+            <div style="font-size:28px;margin-bottom:10px;">🛰️</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px;letter-spacing:1px;">EXIF GPS</div>
             <div style="font-size:12px;color:var(--text-muted);">Reads hidden coordinates from photo metadata</div>
           </div>
-          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
-            <div style="font-size:24px;margin-bottom:8px;">🤖</div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">AI VISION</div>
+          <div class="glass reveal" style="padding:20px;text-align:center;animation-delay:0.2s">
+            <div style="font-size:28px;margin-bottom:10px;">🤖</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px;letter-spacing:1px;">AI VISION</div>
             <div style="font-size:12px;color:var(--text-muted);">Claude analyzes visual clues when GPS unavailable</div>
           </div>
-          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
-            <div style="font-size:24px;margin-bottom:8px;">🗺️</div>
-            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">MAP PIN</div>
+          <div class="glass reveal" style="padding:20px;text-align:center;animation-delay:0.3s">
+            <div style="font-size:28px;margin-bottom:10px;">🗺️</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px;letter-spacing:1px;">MAP PIN</div>
             <div style="font-size:12px;color:var(--text-muted);">Results plotted on interactive OpenStreetMap</div>
           </div>
         </div>
@@ -106,29 +160,26 @@
       <!-- SECTION: ANALYZER -->
       <div class="app-section" id="section-analyzer">
 
-        <!-- Analyzer Header -->
         <div class="analyzer-header">
           <div class="analyzer-file-info">
             <span>📁</span>
             <span class="analyzer-file-name" id="analyzer-file-name">No file selected</span>
             <span class="analyzer-file-size" id="analyzer-file-size"></span>
           </div>
-          <button class="btn-sm" onclick="showSection('upload')">← Back to Upload</button>
+          <button class="btn-sm" onclick="showSection('upload')">← Back</button>
         </div>
 
-        <!-- API Key (also in analyzer view) -->
-        <div class="api-key-bar" style="margin-bottom:16px;">
+        <!-- API Key (analyzer view) -->
+        <div class="api-key-bar" id="api-key-bar-analyzer" style="margin-bottom:16px;">
           <span class="api-key-label">🔑 API KEY</span>
-          <input type="password" class="api-key-input" id="api-key-input-2" placeholder="sk-ant-api03-…" autocomplete="off">
+          <input type="password" class="api-key-input" id="api-key-input-2"
+            placeholder="sk-ant-api03-…" autocomplete="off">
           <a class="api-key-link" href="https://console.anthropic.com" target="_blank">Get key ↗</a>
         </div>
 
-        <!-- Analyze Button -->
-        <button class="btn-analyze" id="btn-analyze" disabled>
-          ANALYZE LOCATION
-        </button>
+        <button class="btn-analyze" id="btn-analyze" disabled>ANALYZE LOCATION</button>
 
-        <!-- Top Grid: Image Preview + Map -->
+        <!-- Top Grid -->
         <div class="analyzer-grid-top">
           <div class="preview-panel">
             <div class="preview-placeholder" id="preview-placeholder">
@@ -151,7 +202,7 @@
           </div>
         </div>
 
-        <!-- Bottom Grid: EXIF + AI Result -->
+        <!-- Bottom Grid -->
         <div class="analyzer-grid-bottom">
           <div class="exif-panel">
             <div class="panel-header">
@@ -212,16 +263,40 @@
   <script src="/js/auth.js"></script>
   <script src="/js/geo.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/particles.js"></script>
 
   <script>
     // Sync API key between both inputs
+    // If server provided key, hide the API key bars
     document.addEventListener('DOMContentLoaded', () => {
       const k1 = document.getElementById('api-key-input');
       const k2 = document.getElementById('api-key-input-2');
+
+      // Auto-fill from server config
+      if (window.ANTHROPIC_API_KEY) {
+        if (k1) k1.value = window.ANTHROPIC_API_KEY;
+        if (k2) k2.value = window.ANTHROPIC_API_KEY;
+        // Hide API key bars since key is already set
+        document.getElementById('api-key-bar-upload').style.display = 'none';
+        document.getElementById('api-key-bar-analyzer').style.display = 'none';
+      }
+
+      // Sync between inputs
       if (k1 && k2) {
         k1.addEventListener('input', () => k2.value = k1.value);
         k2.addEventListener('input', () => k1.value = k2.value);
       }
+
+      // Particle background
+      if (window.ParticleSystem) {
+        new ParticleSystem('particle-canvas');
+      }
+
+      // Scroll reveal
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
     });
   </script>
 </body>
