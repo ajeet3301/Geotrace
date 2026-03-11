@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrace — Analyzer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">GEOTRACE</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="upload">
+          <span class="nav-item-icon">🏠</span> Home
+        </button>
+        <button class="nav-item" data-section="analyzer">
+          <span class="nav-item-icon">🔍</span> Analyzer
+        </button>
+        <button class="nav-item" data-section="history">
+          <span class="nav-item-icon">📊</span> My History
+        </button>
+
+        <div class="nav-separator"></div>
+
+        <a class="nav-item nav-item-admin" id="admin-nav-item" href="/admin" style="display:none;">
+          <span class="nav-item-icon">⚙️</span> Admin Panel
+        </a>
+
+        <div class="nav-separator"></div>
+
+        <button class="nav-item nav-item-danger" id="btn-signout">
+          <span class="nav-item-icon">🚪</span> Sign Out
+        </button>
+      </nav>
+
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading…</div>
+          <div class="user-email" id="user-email"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="main-content">
+
+      <!-- SECTION: UPLOAD -->
+      <div class="app-section active" id="section-upload">
+        <!-- API Key Bar -->
+        <div class="api-key-bar">
+          <span class="api-key-label">🔑 API KEY</span>
+          <input
+            type="password"
+            class="api-key-input"
+            id="api-key-input"
+            placeholder="sk-ant-api03-… (never stored)"
+            autocomplete="off"
+          >
+          <a class="api-key-link" href="https://console.anthropic.com" target="_blank">Get key ↗</a>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.heic,.webp" style="display:none">
+          <span class="upload-icon">📷</span>
+          <h2 class="upload-title">DROP YOUR PHOTO HERE</h2>
+          <p class="upload-sub">or click anywhere to browse your files</p>
+          <div class="upload-types">
+            <span class="upload-type-badge">JPG</span>
+            <span class="upload-type-badge">PNG</span>
+            <span class="upload-type-badge">HEIC</span>
+            <span class="upload-type-badge">WEBP</span>
+          </div>
+        </div>
+
+        <!-- Quick Info -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px;">
+          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:8px;">🛰️</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">EXIF GPS</div>
+            <div style="font-size:12px;color:var(--text-muted);">Reads hidden coordinates from photo metadata</div>
+          </div>
+          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:8px;">🤖</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">AI VISION</div>
+            <div style="font-size:12px;color:var(--text-muted);">Claude analyzes visual clues when GPS unavailable</div>
+          </div>
+          <div style="padding:16px;background:rgba(8,13,20,0.6);border:var(--glass-border);border-radius:16px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:8px;">🗺️</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">MAP PIN</div>
+            <div style="font-size:12px;color:var(--text-muted);">Results plotted on interactive OpenStreetMap</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION: ANALYZER -->
+      <div class="app-section" id="section-analyzer">
+
+        <!-- Analyzer Header -->
+        <div class="analyzer-header">
+          <div class="analyzer-file-info">
+            <span>📁</span>
+            <span class="analyzer-file-name" id="analyzer-file-name">No file selected</span>
+            <span class="analyzer-file-size" id="analyzer-file-size"></span>
+          </div>
+          <button class="btn-sm" onclick="showSection('upload')">← Back to Upload</button>
+        </div>
+
+        <!-- API Key (also in analyzer view) -->
+        <div class="api-key-bar" style="margin-bottom:16px;">
+          <span class="api-key-label">🔑 API KEY</span>
+          <input type="password" class="api-key-input" id="api-key-input-2" placeholder="sk-ant-api03-…" autocomplete="off">
+          <a class="api-key-link" href="https://console.anthropic.com" target="_blank">Get key ↗</a>
+        </div>
+
+        <!-- Analyze Button -->
+        <button class="btn-analyze" id="btn-analyze" disabled>
+          ANALYZE LOCATION
+        </button>
+
+        <!-- Top Grid: Image Preview + Map -->
+        <div class="analyzer-grid-top">
+          <div class="preview-panel">
+            <div class="preview-placeholder" id="preview-placeholder">
+              <div class="preview-placeholder-icon">🖼️</div>
+              <div style="font-size:14px;color:var(--text-muted);">Image preview</div>
+            </div>
+            <img id="preview-img" class="preview-img" src="" alt="Preview" style="display:none;">
+            <div class="scan-line" id="scan-line"></div>
+          </div>
+
+          <div class="map-panel">
+            <div class="map-placeholder" id="map-placeholder">
+              <div style="text-align:center;">
+                <div style="font-size:32px;margin-bottom:12px;">🗺️</div>
+                <div style="font-size:14px;">Map will appear after analysis</div>
+              </div>
+            </div>
+            <div id="leaflet-map" style="display:none;"></div>
+            <div class="map-address" id="map-address"></div>
+          </div>
+        </div>
+
+        <!-- Bottom Grid: EXIF + AI Result -->
+        <div class="analyzer-grid-bottom">
+          <div class="exif-panel">
+            <div class="panel-header">
+              <span class="panel-title">🛰️ EXIF Metadata</span>
+            </div>
+            <table class="exif-table">
+              <tbody id="exif-tbody">
+                <tr><td>GPS LAT</td><td>—</td></tr>
+                <tr><td>GPS LON</td><td>—</td></tr>
+                <tr><td>CAMERA</td><td>—</td></tr>
+                <tr><td>DATE</td><td>—</td></tr>
+                <tr><td>FOCAL</td><td>—</td></tr>
+                <tr><td>APERTURE</td><td>—</td></tr>
+                <tr><td>ISO</td><td>—</td></tr>
+                <tr><td>EXPOSURE</td><td>—</td></tr>
+                <tr><td>FLASH</td><td>—</td></tr>
+                <tr><td>SOFTWARE</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="ai-panel">
+            <div class="panel-header">
+              <span class="panel-title">🤖 AI Analysis</span>
+              <span class="panel-status standby" id="ai-status">STANDBY</span>
+            </div>
+            <div class="ai-result" id="ai-result-container">
+              <div style="color:var(--text-muted);font-size:14px;padding:24px;text-align:center;">
+                Click "ANALYZE LOCATION" to start AI analysis
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION: HISTORY -->
+      <div class="app-section" id="section-history">
+        <div class="history-header">
+          <h2 class="history-title">MY HISTORY</h2>
+          <button class="btn-sm" onclick="refreshHistory()">↺ Refresh</button>
+        </div>
+        <div class="history-grid" id="history-grid">
+          <div style="color:var(--text-muted);font-size:14px;">Loading history…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/geo.js"></script>
+  <script src="/js/app.js"></script>
+
+  <script>
+    // Sync API key between both inputs
+    document.addEventListener('DOMContentLoaded', () => {
+      const k1 = document.getElementById('api-key-input');
+      const k2 = document.getElementById('api-key-input-2');
+      if (k1 && k2) {
+        k1.addEventListener('input', () => k2.value = k1.value);
+        k2.addEventListener('input', () => k1.value = k2.value);
+      }
+    });
+  </script>
+</body>
+</html>
