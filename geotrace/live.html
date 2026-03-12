@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoTrace — Live Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/variables.css">
+<link rel="stylesheet" href="/css/animations.css">
+<link rel="stylesheet" href="/css/live.css">
+</head>
+<body>
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+<canvas id="particle-canvas-live"></canvas>
+<div class="orb orb-l1"></div>
+<div class="orb orb-l2"></div>
+
+<!-- Geofence alert bar -->
+<div class="fence-alert" id="fence-alert-bar"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-dot-live"></div>
+    <div class="sb-name">LIVE<span>.</span></div>
+  </div>
+  <nav class="sb-nav">
+    <button class="nav-item active" data-view="map">🗺 Live Map</button>
+    <button class="nav-item" data-view="history">📂 Route History</button>
+    <button class="nav-item" data-view="analytics">📊 Analytics</button>
+    <button class="nav-item" data-view="geofences">🔒 Geofences</button>
+    <div class="nav-sep"></div>
+    <a href="/app" class="nav-item">📸 Analyzer</a>
+    <a href="/" class="nav-item">🏠 Home</a>
+    <div class="nav-sep"></div>
+    <button class="nav-item danger" id="btn-signout">🚪 Sign Out</button>
+  </nav>
+  <div class="sb-user">
+    <div class="sb-av" id="sb-avatar"></div>
+    <div>
+      <div class="sb-un" id="sb-name">Loading…</div>
+      <div class="sb-ue" id="sb-email"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title">📡 <span>LIVE</span> TRACKER</div>
+    <div class="topbar-actions">
+      <span style="font-family:var(--fm);font-size:12px;color:var(--muted)">Online: <span id="online-count" style="color:var(--green)">0</span></span>
+      <button class="btn" id="btn-toggle-track">▶ Start Tracking</button>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Ready — press Start Tracking</span>
+    <span id="live-coords"></span>
+    <span id="live-address"></span>
+  </div>
+
+  <!-- MAP VIEW -->
+  <div class="view active" id="view-map">
+    <div class="map-wrap">
+      <div id="live-map"></div>
+      <div class="map-controls">
+        <button class="map-btn" id="btn-center-me">🎯 Center</button>
+        <button class="map-btn active" id="btn-toggle-path">〰 Path</button>
+        <button class="map-btn" id="btn-show-heatmap">🔥 Heatmap</button>
+      </div>
+      <!-- Live users panel -->
+      <div class="users-panel">
+        <div class="users-title">ONLINE USERS</div>
+        <div id="users-panel-list"><div style="color:var(--muted);font-size:12px">Checking…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div class="view" id="view-history">
+    <div class="view-hdr">
+      <h2 class="view-h2">ROUTE HISTORY</h2>
+      <div class="route-controls">
+        <span id="history-point-count" style="font-family:var(--fm);font-size:12px;color:var(--muted)">0 points</span>
+        <button class="btn btn-sm" id="btn-play-route">▶ Play Route</button>
+        <button class="btn btn-sm" id="btn-stop-play">⏹ Stop</button>
+        <button class="btn btn-sm btn-danger" id="btn-clear-history">🗑 Clear</button>
+      </div>
+    </div>
+    <div class="map-wrap" style="min-height:400px">
+      <div id="live-map-history" style="display:none"></div>
+      <div style="padding:20px;color:var(--muted2);font-size:14px">Your GPS path is shown on the Live Map. Use Play Route to animate it, or Clear to reset history.</div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS VIEW -->
+  <div class="view" id="view-analytics">
+    <div class="view-hdr">
+      <h2 class="view-h2">ANALYTICS</h2>
+      <button class="btn" id="btn-load-analytics">↺ Refresh</button>
+    </div>
+    <div class="analytics-grid">
+      <div class="a-card"><div class="a-val" id="a-distance">—</div><div class="a-lbl">Distance</div></div>
+      <div class="a-card"><div class="a-val" id="a-duration">—</div><div class="a-lbl">Duration</div></div>
+      <div class="a-card"><div class="a-val" id="a-avg-speed">—</div><div class="a-lbl">Avg Speed</div></div>
+      <div class="a-card"><div class="a-val" id="a-max-speed">—</div><div class="a-lbl">Max Speed</div></div>
+      <div class="a-card"><div class="a-val" id="a-points">—</div><div class="a-lbl">GPS Points</div></div>
+    </div>
+    <div class="speed-chart-wrap">
+      <div class="panel-title" style="font-family:var(--fm);font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:12px;font-weight:600">SPEED OVER TIME (km/h)</div>
+      <canvas id="speed-chart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- GEOFENCES VIEW -->
+  <div class="view" id="view-geofences">
+    <div class="view-hdr"><h2 class="view-h2">GEOFENCES</h2></div>
+
+    <div class="fence-form">
+      <label>Name<input type="text" id="fence-name" placeholder="e.g. Home, Office…"></label>
+      <label>Radius (m)<input type="number" id="fence-radius" value="100" min="10" max="10000"></label>
+      <label>Alert on
+        <select id="fence-alert">
+          <option value="enter">Enter</option>
+          <option value="exit">Exit</option>
+          <option value="both" selected>Both</option>
+        </select>
+      </label>
+      <button class="btn btn-green" id="btn-add-fence">+ Add Geofence</button>
+    </div>
+
+    <div id="fences-list">
+      <div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>
+    </div>
+  </div>
+</main>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/particles.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/geo.js"></script>
+<script src="/js/live.js"></script>
+</body>
+</html>
