@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoTrace — App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="css/variables.css">
+<link rel="stylesheet" href="css/app.css">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<!-- Leaflet Maps (FREE) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- exifr.js (FREE EXIF) -->
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+</head>
+<body>
+<div class="app-wrap">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📍</div>
+      <h1>Geo<span>Trace</span></h1>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Main</div>
+
+      <button class="nav-item active" onclick="showSection('upload'); this.classList.add('active')">
+        <span class="nav-icon">🏠</span> Home
+      </button>
+
+      <button class="nav-item" onclick="showSection('analyzer')">
+        <span class="nav-icon">🔍</span> Analyzer
+      </button>
+
+      <button class="nav-item" onclick="showSection('history')">
+        <span class="nav-icon">📋</span> My History
+        <span id="history-count" style="margin-left:auto;background:var(--accent-dim);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:3px;">0</span>
+      </button>
+
+      <div class="nav-section">Account</div>
+
+      <a id="admin-link" href="admin.html" class="nav-item" style="display:none; text-decoration:none;">
+        <span class="nav-icon">⚙️</span> Admin Panel
+      </a>
+
+      <button class="nav-item" onclick="signOut()">
+        <span class="nav-icon">🚪</span> Sign Out
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell-sidebar">
+        <div id="user-info"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- ── HOME / UPLOAD SECTION ─────────────────────────── -->
+    <div id="upload-section">
+      <div class="topbar">
+        <div>
+          <h2>Upload a <span>Photo</span></h2>
+          <p style="color:var(--muted);font-size:14px;margin-top:4px">Drop any image to extract location data</p>
+        </div>
+      </div>
+
+      <!-- API Key bar -->
+      <div class="api-bar">
+        <label>ANTHROPIC API KEY</label>
+        <input class="api-input" type="password" id="api-key" placeholder="sk-ant-api03-...">
+        <span class="api-note">Free account at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> &nbsp;•&nbsp; 🔒 Never stored</span>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept="image/*" style="display:none">
+        <span class="upload-icon">🛰️</span>
+        <h3>Drop your photo here</h3>
+        <p>JPG · PNG · HEIC · WEBP &nbsp;•&nbsp; EXIF GPS extracted instantly</p>
+        <button class="btn btn-primary" style="margin:0 auto" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+          Browse Files
+        </button>
+      </div>
+    </div>
+
+    <!-- ── ANALYZER SECTION ───────────────────────────────── -->
+    <div id="analyzer-section" style="display:none">
+      <div class="topbar">
+        <div>
+          <h2>📸 <span id="file-name">Photo</span></h2>
+          <span id="file-size" style="font-family:var(--font-mono);font-size:12px;color:var(--muted)"></span>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-ghost" onclick="showSection('upload')">← New Photo</button>
+        </div>
+      </div>
+
+      <!-- Analyze button -->
+      <button class="analyze-btn" id="analyze-btn" onclick="runAnalysis()" disabled>
+        🔍 ANALYZE LOCATION
+      </button>
+
+      <!-- Preview + Map -->
+      <div class="analyzer-grid">
+        <!-- Image panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">📷 Image Preview</span>
+            <span class="status-badge status-ready" id="img-status">LOADED</span>
+          </div>
+          <div class="preview-container">
+            <img id="preview-img" src="" alt="Preview">
+            <div class="scan-overlay" id="scan-overlay"></div>
+          </div>
+        </div>
+
+        <!-- Map panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🗺️ Location Map</span>
+            <span class="status-badge status-ready" id="map-status">READY</span>
+          </div>
+          <div id="map-placeholder" class="map-placeholder">
+            <span>🌍</span>
+            <p>Map appears after analysis</p>
+          </div>
+          <div id="map"></div>
+          <div class="address-line" id="address-line">—</div>
+        </div>
+      </div>
+
+      <!-- EXIF + AI results -->
+      <div class="analyzer-grid">
+        <!-- EXIF panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🔬 EXIF Metadata</span>
+            <span class="status-badge status-ready" id="exif-status">READY</span>
+          </div>
+          <div style="overflow:auto;max-height:320px">
+            <table class="exif-table" id="exif-table">
+              <tr><td class="exif-label">Status</td><td class="exif-val muted">Waiting for upload...</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- AI result panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🤖 AI Analysis</span>
+            <span class="status-badge status-ready" id="ai-status">STANDBY</span>
+          </div>
+          <div class="ai-result-body" id="ai-result-body">
+            <p class="muted" style="font-size:13px;font-style:italic">Click "Analyze Location" to run AI vision analysis...</p>
+          </div>
+          <div class="confidence-wrap">
+            <div class="confidence-label">
+              <span>CONFIDENCE</span>
+              <span id="confidence-num">—</span>
+            </div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" id="confidence-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY SECTION ────────────────────────────────── -->
+    <div id="history-section" style="display:none">
+      <div class="topbar">
+        <div>
+          <h2>📋 My <span>History</span></h2>
+          <p style="color:var(--muted);font-size:14px;margin-top:4px">All your past searches</p>
+        </div>
+        <button class="btn btn-ghost" onclick="refreshHistory()">↻ Refresh</button>
+      </div>
+      <div class="history-grid" id="history-list">
+        <p class="empty-state">Loading...</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // Override showSection to also handle history tab
+  const _origShow = window.showSection;
+  window.showSection = function(name) {
+    ['upload', 'analyzer', 'history'].forEach(s => {
+      document.getElementById(s + '-section').style.display = s === name ? 'block' : 'none';
+    });
+    if (name === 'history') refreshHistory();
+  };
+</script>
+</body>
+</html>

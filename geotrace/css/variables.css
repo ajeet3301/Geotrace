@@ -1,0 +1,283 @@
+/* ================================================================
+   GEOTRACE — variables.css
+   Edit CSS variables to retheme everything instantly
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ── Design tokens ───────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg-void:      #020408;
+  --bg-deep:      #05080f;
+  --bg-card:      rgba(8, 12, 24, 0.6);
+  --bg-card-hover: rgba(12, 18, 36, 0.75);
+
+  /* Neon palette */
+  --neon-violet:  #7c3aed;
+  --neon-cyan:    #06b6d4;
+  --neon-pink:    #e879f9;
+  --neon-gold:    #fbbf24;
+  --neon-green:   #34d399;
+
+  /* Glow colors */
+  --glow-violet:  rgba(124, 58, 237, 0.6);
+  --glow-cyan:    rgba(6, 182, 212, 0.5);
+  --glow-pink:    rgba(232, 121, 249, 0.5);
+  --glow-gold:    rgba(251, 191, 36, 0.4);
+
+  /* Glass */
+  --glass-bg:     rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-border-glow: rgba(124, 58, 237, 0.4);
+  --glass-blur:   20px;
+
+  /* Typography */
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Text */
+  --text-primary:  #f0f4ff;
+  --text-secondary: #8892aa;
+  --text-muted:    #4a5270;
+
+  /* Spacing scale */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+  --s9: 96px; --s10: 128px;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 36px;
+
+  /* Transitions */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast:  0.15s;
+  --t-mid:   0.3s;
+  --t-slow:  0.6s;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  background:          var(--bg-void);
+  color:               var(--text-primary);
+  font-family:         var(--font-body);
+  font-weight:         300;
+  line-height:         1.65;
+  overflow-x:          hidden;
+  -webkit-font-smoothing: antialiased;
+  cursor: none; /* custom cursor */
+}
+
+img, video { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: none; }
+ul { list-style: none; }
+
+/* ── Custom cursor ───────────────────────────────────────────── */
+#cursor-dot {
+  position: fixed;
+  width: 8px; height: 8px;
+  background: var(--neon-cyan);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, background 0.15s;
+  mix-blend-mode: screen;
+}
+
+#cursor-ring {
+  position: fixed;
+  width: 32px; height: 32px;
+  border: 1.5px solid rgba(6, 182, 212, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.08s linear, width 0.2s var(--ease-out), height 0.2s var(--ease-out), border-color 0.2s;
+}
+
+body:has(a:hover) #cursor-dot,
+body:has(button:hover) #cursor-dot {
+  width: 14px; height: 14px;
+  background: var(--neon-pink);
+}
+
+body:has(a:hover) #cursor-ring,
+body:has(button:hover) #cursor-ring {
+  width: 52px; height: 52px;
+  border-color: var(--neon-pink);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: var(--neon-violet); border-radius: 2px; }
+
+/* ── Glass card ──────────────────────────────────────────────── */
+.glass {
+  background:    var(--glass-bg);
+  border:        1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--t-mid) var(--ease-out),
+              box-shadow var(--t-mid) var(--ease-out),
+              border-color var(--t-mid);
+}
+
+/* Iridescent top-edge shimmer */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.08) 0%,
+    transparent 40%,
+    rgba(124,58,237,0.05) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glass > * { position: relative; z-index: 1; }
+
+.glass:hover {
+  transform:    translateY(-6px) scale(1.01);
+  border-color: var(--glass-border-glow);
+  box-shadow:
+    0 0 30px var(--glow-violet),
+    0 0 60px rgba(124,58,237,0.2),
+    inset 0 0 30px rgba(124,58,237,0.05);
+}
+
+/* Card glow variants */
+.glass.glow-cyan:hover {
+  box-shadow: 0 0 30px var(--glow-cyan), 0 0 60px rgba(6,182,212,0.2);
+  border-color: rgba(6,182,212,0.4);
+}
+.glass.glow-pink:hover {
+  box-shadow: 0 0 30px var(--glow-pink), 0 0 60px rgba(232,121,249,0.2);
+  border-color: rgba(232,121,249,0.4);
+}
+.glass.glow-gold:hover {
+  box-shadow: 0 0 30px var(--glow-gold), 0 0 60px rgba(251,191,36,0.2);
+  border-color: rgba(251,191,36,0.4);
+}
+
+/* ── Neon image wrapper ──────────────────────────────────────── */
+.neon-img {
+  border-radius: var(--r-md);
+  position: relative;
+  display: inline-block;
+}
+
+.neon-img img {
+  border-radius: var(--r-md);
+  border: 1px solid rgba(124,58,237,0.3);
+  transition: border-color var(--t-mid), box-shadow var(--t-mid);
+}
+
+.neon-img::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--r-md) + 2px);
+  background: linear-gradient(135deg, var(--neon-violet), var(--neon-cyan), var(--neon-pink));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity var(--t-mid);
+  filter: blur(8px);
+}
+
+.neon-img:hover img { border-color: var(--neon-cyan); }
+.neon-img:hover::after { opacity: 0.7; }
+
+/* ── Utility ─────────────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--s5);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); border: 0;
+}
+
+/* ── Gradient text ───────────────────────────────────────────── */
+.grad-text {
+  background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-violet) 50%, var(--neon-pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.grad-text-gold {
+  background: linear-gradient(135deg, var(--neon-gold) 0%, #ff8c42 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Neon divider ────────────────────────────────────────────── */
+.neon-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon-violet), var(--neon-cyan), transparent);
+  border: none;
+  margin: 0;
+  opacity: 0.4;
+}
+
+/* ── Section label ───────────────────────────────────────────── */
+.section-label {
+  font-family:     var(--font-mono);
+  font-size:       11px;
+  letter-spacing:  3px;
+  text-transform:  uppercase;
+  color:           var(--neon-cyan);
+  margin-bottom:   var(--s3);
+  display:         block;
+}
+
+/* ── Scroll reveal ───────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-5 { transition-delay: 0.5s; }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { cursor: auto; }
+  #cursor-dot, #cursor-ring { display: none; }
+}
