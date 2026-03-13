@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoTrace — App</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="cur-dot" id="cur-dot"></div>
+<div class="cur-ring" id="cur-ring"></div>
+<canvas id="pc"></canvas>
+<div class="orb o1"></div><div class="orb o2"></div>
+
+<aside class="sidebar">
+  <div class="sb-logo"><div class="sb-dot"></div><div class="sb-name">GEO<span>TRACE</span></div></div>
+  <nav class="sb-nav">
+    <button class="nav-item active" data-view="analyzer">📸 Analyzer</button>
+    <button class="nav-item" data-view="history">📂 History</button>
+    <div class="nav-sep"></div>
+    <a href="/live" class="nav-item">📡 Live Tracker</a>
+    <a href="/" class="nav-item">🏠 Home</a>
+    <div class="nav-sep"></div>
+    <button class="nav-item danger" id="btn-signout">🚪 Sign Out</button>
+  </nav>
+  <div class="sb-user">
+    <div class="sb-av" id="sb-avatar"></div>
+    <div><div class="sb-un" id="sb-name">Loading…</div><div class="sb-ue" id="sb-email"></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title">📸 PHOTO ANALYZER</div>
+    <div class="topbar-actions">
+      <a href="/live" class="btn" style="color:#10b981;border-color:rgba(16,185,129,.3)">📡 Live Tracker</a>
+    </div>
+  </div>
+
+  <div class="api-bar" id="api-bar">
+    <span class="api-label">ANTHROPIC API KEY</span>
+    <input class="api-input" id="api-input" type="password" placeholder="sk-ant-api03-…">
+    <button class="api-save" id="btn-save-key">Save</button>
+  </div>
+
+  <div class="view active" id="view-analyzer">
+    <div class="view-hdr"><h2 class="view-h2">GEOLOCATE A PHOTO</h2></div>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/*" style="display:none">
+      <div class="upload-icon">📸</div>
+      <div class="upload-txt">Drop your photo here or click to upload</div>
+      <div class="upload-sub">JPEG · PNG · WebP · HEIC — up to 10MB</div>
+    </div>
+    <button class="btn-analyze" id="btn-analyze" disabled>
+      <div class="scan-line"></div>🔍 ANALYZE LOCATION
+    </button>
+    <div id="panel-preview" class="panel" style="display:none">
+      <div class="panel-title">PREVIEW</div>
+      <img id="img-preview" alt="Preview" style="width:100%;border-radius:10px;max-height:300px;object-fit:cover">
+    </div>
+    <div class="result-grid">
+      <div class="panel">
+        <div class="panel-title">EXIF DATA</div>
+        <table class="exif-table"><tbody id="exif-body"><tr><td colspan="2" style="color:rgba(226,228,240,.45)">Upload a photo to see EXIF data</td></tr></tbody></table>
+      </div>
+      <div class="panel" id="panel-ai">
+        <div class="panel-title">AI ANALYSIS</div>
+        <div style="color:rgba(226,228,240,.45);font-size:13px">Click Analyze to run Claude AI Vision analysis</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">LOCATION MAP</div>
+      <div id="address-display" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#67e8f9;margin-bottom:10px;display:none"></div>
+      <div id="gt-map"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-history">
+    <div class="view-hdr"><h2 class="view-h2">SEARCH HISTORY</h2></div>
+    <div id="history-list"><div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/particles.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/geo.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

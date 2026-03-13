@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoTrace — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="cur-dot" id="cur-dot"></div>
+<div class="cur-ring" id="cur-ring"></div>
+<canvas id="pc"></canvas>
+<div class="orb o1"></div><div class="orb o2"></div>
+
+<aside class="sidebar">
+  <div class="sb-logo"><div class="sb-dot"></div><div class="sb-name">ADMIN<span>.</span></div></div>
+  <nav class="sb-nav">
+    <button class="nav-item active" data-view="overview">📊 Overview</button>
+    <button class="nav-item" data-view="users">👥 Users</button>
+    <button class="nav-item" data-view="searches">🔍 Searches</button>
+    <div class="nav-sep"></div>
+    <a href="/app" class="nav-item">📸 Analyzer</a>
+    <a href="/live" class="nav-item">📡 Live Tracker</a>
+    <div class="nav-sep"></div>
+    <button class="nav-item danger" id="btn-signout">🚪 Sign Out</button>
+  </nav>
+  <div class="sb-user">
+    <div class="sb-av" id="sb-avatar"></div>
+    <div><div class="sb-un" id="sb-name">Loading…</div><div class="sb-ue" id="sb-email"></div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar"><div class="topbar-title">⚙️ ADMIN DASHBOARD</div></div>
+
+  <div class="view active" id="view-overview">
+    <div class="view-hdr"><h2 class="view-h2">OVERVIEW</h2></div>
+    <div class="stats-grid">
+      <div class="stat-card sc-v"><div class="sc-icon">👥</div><div class="sc-val" id="stat-users">—</div><div class="sc-lbl">Total Users</div></div>
+      <div class="stat-card sc-c"><div class="sc-icon">🔍</div><div class="sc-val" id="stat-searches">—</div><div class="sc-lbl">Total Searches</div></div>
+      <div class="stat-card sc-g"><div class="sc-icon">📅</div><div class="sc-val" id="stat-today">—</div><div class="sc-lbl">Today's Searches</div></div>
+      <div class="stat-card" style="border-color:rgba(251,191,36,.3)"><div class="sc-icon">🎯</div><div class="sc-val" id="stat-conf" style="color:#fbbf24">—</div><div class="sc-lbl">Avg Confidence</div></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-users">
+    <div class="view-hdr"><h2 class="view-h2">ALL USERS</h2></div>
+    <div class="panel" style="overflow-x:auto">
+      <table class="data-table">
+        <thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>SEARCHES</th><th>LAST LOGIN</th></tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="5"><div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="view" id="view-searches">
+    <div class="view-hdr"><h2 class="view-h2">ALL SEARCHES</h2></div>
+    <div class="panel" style="overflow-x:auto">
+      <table class="data-table">
+        <thead><tr><th>FILE</th><th>LOCATION</th><th>CONFIDENCE</th><th>SOURCE</th><th>DATE</th></tr></thead>
+        <tbody id="searches-tbody"><tr><td colspan="5"><div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="/js/config.js"></script>
+<script src="/js/particles.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

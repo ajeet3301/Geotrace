@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoTrace — AI-Powered Photo Geolocation</title>
+<meta name="description" content="Upload any photo and GeoTrace will find exactly where it was taken using EXIF GPS data and Claude AI Vision analysis.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ══ RESET ══ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:#03050e;color:#e2e4f0;font-family:'DM Sans',sans-serif;overflow-x:hidden;cursor:none;line-height:1.6}
+a{color:inherit;text-decoration:none}
+img{display:block;width:100%;height:100%;object-fit:cover}
+:root{
+  --v:#7c3aed;--v2:#a78bfa;--v3:#4c1d95;
+  --c:#06b6d4;--c2:#67e8f9;
+  --p:#e879f9;--g:#10b981;--gold:#fbbf24;
+  --bg:#03050e;--bg1:#060a18;
+  --glass:rgba(255,255,255,.03);
+  --border:rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.12);
+  --muted:rgba(226,228,240,.45);--muted2:rgba(226,228,240,.65);
+  --mono:'JetBrains Mono',monospace;--display:'Bebas Neue',sans-serif;
+}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(124,58,237,.4);border-radius:2px}
+
+/* ══ CURSOR ══ */
+.cur-dot{position:fixed;width:7px;height:7px;background:var(--v2);border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%)}
+.cur-ring{position:fixed;width:38px;height:38px;border:1px solid rgba(167,139,250,.35);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);transition:width .22s,height .22s,border-color .22s}
+
+/* ══ CANVAS / ORBS ══ */
+#pc{position:fixed;inset:0;z-index:0;pointer-events:none}
+.orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;animation:orb-drift 22s ease-in-out infinite}
+.o1{width:700px;height:700px;top:-220px;left:-180px;background:radial-gradient(circle,rgba(109,40,217,.2),transparent 68%)}
+.o2{width:600px;height:600px;bottom:-180px;right:-150px;background:radial-gradient(circle,rgba(6,182,212,.13),transparent 68%);animation-duration:28s;animation-direction:reverse}
+.o3{width:440px;height:440px;top:40%;left:46%;background:radial-gradient(circle,rgba(236,72,153,.1),transparent 68%);animation-duration:17s;animation-delay:5s}
+@keyframes orb-drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(70px,-90px) scale(1.06)}66%{transform:translate(-60px,70px) scale(.95)}}
+@keyframes fade-up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float-y{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes spin-slow{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(167,139,250,.7)}70%{box-shadow:0 0 0 9px rgba(167,139,250,0)}100%{box-shadow:0 0 0 0 rgba(167,139,250,0)}}
+@keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes toast-in{from{opacity:0;transform:translateX(44px)}to{opacity:1;transform:translateX(0)}}
+
+/* ══ NAV ══ */
+.nav{position:fixed;top:0;left:0;right:0;z-index:500;height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:rgba(3,5,14,.75);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);transition:background .3s}
+.nav.scrolled{background:rgba(3,5,14,.96)}
+.nav-logo{font-family:var(--display);font-size:26px;letter-spacing:4px;color:#e2e4f0}
+.nav-logo span{color:var(--v2)}
+.nav-links{display:flex;align-items:center;gap:34px;list-style:none}
+.nav-links a{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:.3px;transition:color .2s}
+.nav-links a:hover{color:#e2e4f0}
+.nav-cta{padding:9px 22px !important;background:linear-gradient(135deg,var(--v),var(--v3)) !important;color:#fff !important;border-radius:8px;font-weight:600 !important;box-shadow:0 0 24px rgba(109,40,217,.4);transition:transform .2s,box-shadow .2s !important}
+.nav-cta:hover{transform:translateY(-2px) !important;box-shadow:0 4px 36px rgba(109,40,217,.6) !important}
+
+/* ══ HERO ══ */
+.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:60px;padding:120px 80px 80px;position:relative;z-index:1;max-width:1440px;margin:0 auto}
+
+.hero-badge{display:inline-flex;align-items:center;gap:9px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.22);border-radius:100px;padding:7px 16px 7px 9px;font-size:12px;font-weight:500;color:rgba(167,139,250,.95);margin-bottom:28px;animation:fade-up .6s ease both}
+.badge-dot{width:7px;height:7px;border-radius:50%;background:var(--v2);animation:pulse-ring 2s ease-in-out infinite}
+
+.hero-h1{font-family:var(--display);font-size:clamp(68px,7.5vw,112px);line-height:.91;letter-spacing:2px;margin-bottom:30px;animation:fade-up .7s .1s ease both}
+.outline{-webkit-text-stroke:2px rgba(167,139,250,.65);color:transparent}
+.grad{background:linear-gradient(125deg,#a78bfa 10%,#67e8f9 90%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.tw-cursor{display:inline-block;width:4px;background:var(--v2);margin-left:3px;animation:blink .85s step-end infinite;vertical-align:text-bottom;height:.85em}
+
+.hero-sub{font-size:17px;font-weight:300;color:var(--muted2);line-height:1.78;max-width:480px;margin-bottom:44px;animation:fade-up .7s .2s ease both}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:60px;animation:fade-up .7s .3s ease both}
+
+.btn-primary{display:inline-flex;align-items:center;gap:9px;padding:14px 30px;background:linear-gradient(135deg,var(--v) 0%,var(--v3) 100%);color:#fff;font-weight:600;font-size:15px;border-radius:10px;border:none;cursor:pointer;box-shadow:0 0 32px rgba(109,40,217,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:all .25s;letter-spacing:.2px;font-family:'DM Sans',sans-serif}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 44px rgba(109,40,217,.65),inset 0 1px 0 rgba(255,255,255,.12)}
+.btn-ghost{display:inline-flex;align-items:center;gap:9px;padding:14px 28px;background:transparent;border:1px solid var(--border2);color:var(--muted2);font-size:15px;font-weight:500;border-radius:10px;cursor:pointer;transition:all .25s;font-family:'DM Sans',sans-serif}
+.btn-ghost:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.22);color:#e2e4f0}
+
+.hero-metrics{display:flex;gap:0;animation:fade-up .7s .4s ease both}
+.metric{padding:0 28px 0 24px;border-left:1px solid rgba(255,255,255,.1)}
+.metric:first-child{padding-left:0;border-left:none}
+.metric-val{font-family:var(--display);font-size:38px;letter-spacing:1px;color:var(--v2);line-height:1;margin-bottom:5px}
+.metric-lbl{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+
+/* ══ HERO VISUALS ══ */
+.hero-visuals{position:relative;height:580px;animation:fade-up .8s .25s ease both}
+.orbit{position:absolute;border-radius:50%;border:1px solid rgba(167,139,250,.1);top:50%;left:50%;transform:translate(-50%,-50%);animation:spin-slow linear infinite}
+.orbit-1{width:500px;height:500px;animation-duration:44s}
+.orbit-2{width:360px;height:360px;border-color:rgba(6,182,212,.09);animation-duration:30s;animation-direction:reverse}
+.orbit-3{width:220px;height:220px;border-color:rgba(236,72,153,.08);animation-duration:20s}
+
+.hero-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:104px;height:104px;border-radius:50%;background:radial-gradient(circle,rgba(109,40,217,.4),rgba(3,5,14,.85));border:1px solid rgba(167,139,250,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:4;box-shadow:0 0 50px rgba(109,40,217,.4),0 0 100px rgba(109,40,217,.15)}
+.hero-center-icon{font-size:28px;line-height:1}
+.hero-center-txt{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--v2);margin-top:4px}
+
+/* Floating photos */
+.fphoto{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.08);animation:float-y ease-in-out infinite;transition:transform .3s}
+.fphoto:hover{transform:scale(1.04) translateY(-6px) !important;z-index:10}
+.fphoto img{width:100%;height:100%;object-fit:cover;display:block}
+.fphoto-tag{position:absolute;bottom:0;left:0;right:0;padding:28px 12px 10px;background:linear-gradient(to top,rgba(0,0,0,.9),transparent);display:flex;justify-content:space-between;align-items:flex-end}
+.fphoto-city{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:2px;color:#fff}
+.fphoto-conf{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(167,139,250,.25);border:1px solid rgba(167,139,250,.45);color:#c4b5fd}
+
+.fp1{width:198px;height:238px;top:22px;left:25%;animation-duration:7s;animation-delay:0s}
+.fp2{width:172px;height:212px;bottom:28px;left:4%;animation-duration:8.5s;animation-delay:1.5s}
+.fp3{width:188px;height:228px;top:55px;right:3%;animation-duration:6.5s;animation-delay:.8s}
+.fp4{width:162px;height:194px;bottom:55px;right:18%;animation-duration:9s;animation-delay:2.2s}
+
+/* neon border on hover */
+.fphoto::after{content:'';position:absolute;inset:0;border-radius:14px;border:1px solid transparent;transition:border-color .3s;pointer-events:none}
+.fphoto:hover::after{border-color:rgba(167,139,250,.45)}
+
+/* ══ SECTIONS BASE ══ */
+section{position:relative;z-index:1}
+.s-inner{max-width:1200px;margin:0 auto;padding:100px 48px}
+.s-tag{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--v2);font-weight:600;margin-bottom:12px;text-transform:uppercase}
+.s-title{font-family:var(--display);font-size:clamp(38px,5vw,60px);letter-spacing:2px;margin-bottom:18px}
+.s-sub{font-size:16px;font-weight:300;color:var(--muted2);max-width:520px;line-height:1.75}
+
+/* ══ REVEAL ══ */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+.reveal-delay-5{transition-delay:.5s}
+
+/* ══ FEATURES ══ */
+.features-section{background:linear-gradient(180deg,transparent,rgba(109,40,217,.04),transparent)}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px}
+.feat-card{background:var(--glass);border:1px solid var(--border);border-radius:18px;padding:28px;transition:all .35s;position:relative;overflow:hidden}
+.feat-card::before{content:'';position:absolute;inset:0;border-radius:18px;opacity:0;transition:opacity .35s;pointer-events:none}
+.feat-card:hover{transform:translateY(-4px);border-color:rgba(167,139,250,.22)}
+.feat-card:hover::before{opacity:1}
+.fc-v::before{background:radial-gradient(circle at 30% 30%,rgba(124,58,237,.1),transparent 60%)}
+.fc-c::before{background:radial-gradient(circle at 30% 30%,rgba(6,182,212,.08),transparent 60%)}
+.fc-p::before{background:radial-gradient(circle at 30% 30%,rgba(232,121,249,.08),transparent 60%)}
+.fc-g::before{background:radial-gradient(circle at 30% 30%,rgba(251,191,36,.07),transparent 60%)}
+.feat-icon{font-size:34px;margin-bottom:18px;display:block}
+.feat-title{font-family:var(--display);font-size:20px;letter-spacing:1.5px;margin-bottom:10px}
+.feat-desc{font-size:14px;color:var(--muted2);line-height:1.7}
+
+/* ══ HOW IT WORKS ══ */
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;margin-top:60px}
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:20px;padding:24px 0;border-bottom:1px solid var(--border);position:relative}
+.step:last-child{border-bottom:none}
+.step-num{font-family:var(--display);font-size:52px;color:rgba(124,58,237,.2);line-height:1;flex-shrink:0;width:56px;transition:color .3s}
+.step:hover .step-num{color:rgba(124,58,237,.55)}
+.step-content h3{font-size:16px;font-weight:600;margin-bottom:7px}
+.step-content p{font-size:14px;color:var(--muted2);line-height:1.7}
+
+/* stacked images */
+.how-img-stack{position:relative;height:460px}
+.how-img{position:absolute;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 50px rgba(0,0,0,.65)}
+.hi1{width:260px;height:320px;top:0;right:0;animation:float-y 8s ease-in-out infinite}
+.hi2{width:230px;height:280px;bottom:0;left:0;animation:float-y 9s ease-in-out infinite;animation-delay:1s}
+.hi3{width:190px;height:230px;bottom:40px;right:30px;animation:float-y 7s ease-in-out infinite;animation-delay:2s}
+
+/* ══ STATS ══ */
+.stats-band{background:rgba(255,255,255,.015);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+.stat-card{background:var(--bg1);padding:40px 32px;text-align:center;transition:background .3s}
+.stat-card:hover{background:rgba(124,58,237,.06)}
+.stat-num{font-family:var(--display);font-size:52px;letter-spacing:2px;background:linear-gradient(125deg,var(--v2),var(--c2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.stat-lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+
+/* ══ MARQUEE ══ */
+.marquee-section{padding:0;overflow:hidden;border-bottom:1px solid var(--border)}
+.marquee-inner{display:flex;width:max-content;animation:marquee-scroll 35s linear infinite}
+.marquee-item{width:220px;flex-shrink:0;margin-right:3px;position:relative;overflow:hidden;border-radius:0}
+.marquee-item img{width:220px;height:130px;object-fit:cover;display:block;filter:brightness(.7) saturate(.9)}
+.marquee-item:hover img{filter:brightness(.9) saturate(1.1)}
+.marquee-lbl{position:absolute;bottom:0;left:0;right:0;padding:22px 12px 8px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#fff;font-weight:600}
+
+/* ══ TESTIMONIALS ══ */
+.test-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px}
+.test-card{background:var(--glass);border:1px solid var(--border);border-radius:18px;padding:28px;transition:all .3s;position:relative;overflow:hidden}
+.test-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.2)}
+.test-quote{font-size:36px;color:var(--v);line-height:1;margin-bottom:14px;opacity:.4}
+.test-text{font-size:14px;color:var(--muted2);line-height:1.75;margin-bottom:22px;font-style:italic}
+.test-author{display:flex;align-items:center;gap:12px}
+.test-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--v),var(--c));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.test-name{font-size:14px;font-weight:600}
+.test-role{font-size:12px;color:var(--muted)}
+
+/* ══ CTA SECTION ══ */
+.cta-section{padding:100px 48px}
+.cta-card{max-width:760px;margin:0 auto;background:var(--glass);border:1px solid rgba(124,58,237,.22);border-radius:28px;padding:72px 64px;text-align:center;position:relative;overflow:hidden}
+.cta-blob{position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(109,40,217,.25),transparent 65%);top:-100px;left:50%;transform:translateX(-50%);pointer-events:none;border-radius:50%}
+.cta-title{font-family:var(--display);font-size:clamp(48px,6vw,76px);letter-spacing:2px;line-height:.92;margin-bottom:20px;position:relative;z-index:1}
+.cta-sub{font-size:16px;color:var(--muted2);max-width:480px;margin:0 auto 40px;line-height:1.75;position:relative;z-index:1}
+
+/* ══ FOOTER ══ */
+footer{border-top:1px solid var(--border);position:relative;z-index:1}
+.footer-inner{max-width:1200px;margin:0 auto;padding:64px 48px 40px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px}
+.footer-brand-logo{font-family:var(--display);font-size:28px;letter-spacing:4px;color:#e2e4f0;margin-bottom:12px}
+.footer-brand-logo span{color:var(--v2)}
+.footer-brand-desc{font-size:13px;color:var(--muted);line-height:1.7;max-width:260px}
+.footer-col h4{font-size:12px;font-weight:600;letter-spacing:2px;color:#e2e4f0;text-transform:uppercase;margin-bottom:16px}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.footer-col a{font-size:13px;color:var(--muted);transition:color .2s}
+.footer-col a:hover{color:#e2e4f0}
+.footer-bottom{max-width:1200px;margin:0 auto;padding:20px 48px 32px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)}
+.footer-bottom span{font-size:12px;color:var(--muted)}
+.footer-mono{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:1024px){
+  .hero{grid-template-columns:1fr;padding:120px 40px 80px;text-align:center}
+  .hero-visuals{display:none}
+  .hero-badge{margin:0 auto 28px}
+  .hero-h1{font-size:clamp(60px,12vw,90px)}
+  .hero-sub{margin:0 auto 44px}
+  .hero-btns{justify-content:center}
+  .hero-metrics{justify-content:center}
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .how-grid{grid-template-columns:1fr}
+  .how-img-stack{display:none}
+  .test-grid{grid-template-columns:1fr}
+  .footer-inner{grid-template-columns:1fr 1fr}
+}
+@media(max-width:640px){
+  .nav{padding:0 20px}
+  .nav-links{display:none}
+  .s-inner{padding:80px 24px}
+  .features-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .footer-inner{grid-template-columns:1fr;padding:48px 24px 32px}
+  .footer-bottom{padding:16px 24px 28px}
+  .cta-card{padding:48px 28px}
+}
+</style>
+</head>
+<body>
+
+<div class="cur-dot" id="cur-dot"></div>
+<div class="cur-ring" id="cur-ring"></div>
+<canvas id="pc"></canvas>
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div class="orb o3"></div>
+
+<!-- ══ NAV ══ -->
+<nav class="nav" id="nav">
+  <div class="nav-logo">GEO<span>TRACE</span></div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#stats">Stats</a></li>
+    <li><a href="/live">Live Tracker</a></li>
+    <li><a href="/login" class="nav-cta">Get Started →</a></li>
+  </ul>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section class="hero" id="hero">
+  <!-- Left content -->
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      Powered by Claude AI Vision
+    </div>
+
+    <h1 class="hero-h1">
+      LOCATE<br>
+      <span class="outline">ANY</span><br>
+      <span class="grad typewriter-wrap">
+        <span id="tw-text">PHOTO</span><span class="tw-cursor"></span>
+      </span>
+    </h1>
+
+    <p class="hero-sub">
+      Upload any image. GeoTrace extracts hidden GPS metadata and uses Claude AI to analyze
+      landmarks, architecture, vegetation, and cultural clues — pinpointing the exact location on an interactive map.
+    </p>
+
+    <div class="hero-btns">
+      <a href="/login" class="btn-primary">🚀 Start for Free</a>
+      <a href="#how" class="btn-ghost">▶ See How It Works</a>
+    </div>
+
+    <div class="hero-metrics">
+      <div class="metric">
+        <div class="metric-val" data-count="98.4" data-suffix="%">98.4%</div>
+        <div class="metric-lbl">Accuracy</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" data-count="2500000" data-format="M">2.5M+</div>
+        <div class="metric-lbl">Photos Analyzed</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" data-count="3" data-suffix="s">3s</div>
+        <div class="metric-lbl">Avg Analysis</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right visuals -->
+  <div class="hero-visuals">
+    <div class="orbit orbit-1"></div>
+    <div class="orbit orbit-2"></div>
+    <div class="orbit orbit-3"></div>
+
+    <div class="hero-center">
+      <div class="hero-center-icon">🌍</div>
+      <div class="hero-center-txt">AI SCAN</div>
+    </div>
+
+    <div class="fphoto fp1">
+      <img src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400&q=80" alt="Tokyo" loading="lazy">
+      <div class="fphoto-tag"><span class="fphoto-city">TOKYO, JP</span><span class="fphoto-conf">88%</span></div>
+    </div>
+    <div class="fphoto fp2">
+      <img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=400&q=80" alt="Paris" loading="lazy">
+      <div class="fphoto-tag"><span class="fphoto-city">PARIS, FR</span><span class="fphoto-conf">96%</span></div>
+    </div>
+    <div class="fphoto fp3">
+      <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="New York" loading="lazy">
+      <div class="fphoto-tag"><span class="fphoto-city">NEW YORK, US</span><span class="fphoto-conf">92%</span></div>
+    </div>
+    <div class="fphoto fp4">
+      <img src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400&q=80" alt="Dubai" loading="lazy">
+      <div class="fphoto-tag"><span class="fphoto-city">DUBAI, UAE</span><span class="fphoto-conf">91%</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ══ -->
+<section class="features-section" id="features">
+  <div class="s-inner">
+    <p class="s-tag reveal">Capabilities</p>
+    <h2 class="s-title reveal reveal-delay-1">EVERYTHING YOU NEED</h2>
+    <p class="s-sub reveal reveal-delay-2">A complete geolocation toolkit powered by cutting-edge AI and open-source mapping technology.</p>
+    <div class="features-grid">
+      <div class="feat-card fc-v reveal reveal-delay-1">
+        <span class="feat-icon">🛰️</span>
+        <h3 class="feat-title">EXIF GPS EXTRACTION</h3>
+        <p class="feat-desc">Instantly reads hidden GPS coordinates embedded in photo metadata. Works with JPG, PNG, HEIC, and WEBP files from all major smartphones and cameras.</p>
+      </div>
+      <div class="feat-card fc-c reveal reveal-delay-2">
+        <span class="feat-icon">🤖</span>
+        <h3 class="feat-title">CLAUDE AI VISION</h3>
+        <p class="feat-desc">When GPS data is absent, Claude analyzes architecture, vegetation, road signs, license plates, language, sky angle, and cultural markers to predict location.</p>
+      </div>
+      <div class="feat-card fc-p reveal reveal-delay-3">
+        <span class="feat-icon">🗺️</span>
+        <h3 class="feat-title">INTERACTIVE MAPS</h3>
+        <p class="feat-desc">Visualize results on a beautiful Leaflet.js map powered by OpenStreetMap. No extra API keys needed — completely free with full zoom and pan controls.</p>
+      </div>
+      <div class="feat-card fc-g reveal reveal-delay-1">
+        <span class="feat-icon">📡</span>
+        <h3 class="feat-title">LIVE GPS TRACKING</h3>
+        <p class="feat-desc">Real-time location tracking with path history, speed readouts, heatmaps, and geofence alerts. Track yourself and your whole team on one map.</p>
+      </div>
+      <div class="feat-card fc-v reveal reveal-delay-2">
+        <span class="feat-icon">🔐</span>
+        <h3 class="feat-title">GOOGLE AUTH</h3>
+        <p class="feat-desc">Secure one-click sign-in via Firebase Authentication. Your Anthropic API key lives only in your browser — never stored on our servers.</p>
+      </div>
+      <div class="feat-card fc-c reveal reveal-delay-3">
+        <span class="feat-icon">⚙️</span>
+        <h3 class="feat-title">ADMIN DASHBOARD</h3>
+        <p class="feat-desc">Full admin panel with realtime analytics, user management, search monitoring and history. Complete control over your platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ HOW IT WORKS ══ -->
+<section id="how">
+  <div class="s-inner">
+    <p class="s-tag reveal">The Process</p>
+    <h2 class="s-title reveal reveal-delay-1">HOW IT WORKS</h2>
+    <div class="how-grid">
+      <div class="steps">
+        <div class="step reveal reveal-delay-2">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Upload Your Photo</h3>
+            <p>Drag and drop or click to select any JPG, PNG, HEIC, or WEBP image from your device. Supports files up to 10MB.</p>
+          </div>
+        </div>
+        <div class="step reveal reveal-delay-3">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>EXIF Metadata Scan</h3>
+            <p>GeoTrace instantly extracts EXIF metadata including GPS coordinates, camera info, and shooting settings from your photo.</p>
+          </div>
+        </div>
+        <div class="step reveal reveal-delay-4">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>AI Visual Analysis</h3>
+            <p>If GPS data is missing, Claude AI analyzes every visual element — landmarks, text, vehicles, and environmental clues.</p>
+          </div>
+        </div>
+        <div class="step reveal reveal-delay-5">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Pin on the Map</h3>
+            <p>The predicted location is pinned on an interactive map with a confidence score and detailed reasoning from the AI.</p>
+          </div>
+        </div>
+      </div>
+      <div class="how-img-stack reveal reveal-delay-2">
+        <div class="how-img hi1"><img src="https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?w=500&q=80" alt="Kyoto" loading="lazy"></div>
+        <div class="how-img hi2"><img src="https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=500&q=80" alt="Bali" loading="lazy"></div>
+        <div class="how-img hi3"><img src="https://images.unsplash.com/photo-1501854140801-50d01698950b?w=500&q=80" alt="Patagonia" loading="lazy"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ STATS ══ -->
+<section class="stats-band" id="stats">
+  <div class="stats-grid">
+    <div class="stat-card reveal">
+      <div class="stat-num" data-count="98.4" data-suffix="%">98.4%</div>
+      <div class="stat-lbl">AI Accuracy Rate</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-1">
+      <div class="stat-num" data-count="150" data-suffix="+">150+</div>
+      <div class="stat-lbl">Countries Identified</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-2">
+      <div class="stat-num" data-count="3" data-suffix="s">3s</div>
+      <div class="stat-lbl">Average Analysis</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-3">
+      <div class="stat-num" data-count="25" data-suffix="M+">25M+</div>
+      <div class="stat-lbl">Photos Analyzed</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MARQUEE ══ -->
+<section class="marquee-section">
+  <div class="marquee-inner" id="marquee-inner">
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=300&q=70" alt="Tokyo" loading="lazy"><div class="marquee-lbl">TOKYO, JP</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=300&q=70" alt="Paris" loading="lazy"><div class="marquee-lbl">PARIS, FR</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=70" alt="New York" loading="lazy"><div class="marquee-lbl">NEW YORK, US</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=300&q=70" alt="Dubai" loading="lazy"><div class="marquee-lbl">DUBAI, UAE</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?w=300&q=70" alt="Kyoto" loading="lazy"><div class="marquee-lbl">KYOTO, JP</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1488085061387-422e29b40080?w=300&q=70" alt="Venice" loading="lazy"><div class="marquee-lbl">VENICE, IT</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&q=70" alt="Swiss Alps" loading="lazy"><div class="marquee-lbl">SWISS ALPS</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&q=70" alt="Patagonia" loading="lazy"><div class="marquee-lbl">PATAGONIA, AR</div></div>
+    <!-- duplicated for infinite scroll -->
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=300&q=70" alt="Tokyo" loading="lazy"><div class="marquee-lbl">TOKYO, JP</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=300&q=70" alt="Paris" loading="lazy"><div class="marquee-lbl">PARIS, FR</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&q=70" alt="New York" loading="lazy"><div class="marquee-lbl">NEW YORK, US</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=300&q=70" alt="Dubai" loading="lazy"><div class="marquee-lbl">DUBAI, UAE</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?w=300&q=70" alt="Kyoto" loading="lazy"><div class="marquee-lbl">KYOTO, JP</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1488085061387-422e29b40080?w=300&q=70" alt="Venice" loading="lazy"><div class="marquee-lbl">VENICE, IT</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&q=70" alt="Swiss Alps" loading="lazy"><div class="marquee-lbl">SWISS ALPS</div></div>
+    <div class="marquee-item"><img src="https://images.unsplash.com/photo-1501854140801-50d01698950b?w=300&q=70" alt="Patagonia" loading="lazy"><div class="marquee-lbl">PATAGONIA, AR</div></div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ══ -->
+<section id="testimonials">
+  <div class="s-inner">
+    <p class="s-tag reveal">What Users Say</p>
+    <h2 class="s-title reveal reveal-delay-1">TRUSTED WORLDWIDE</h2>
+    <div class="test-grid">
+      <div class="test-card reveal">
+        <div class="test-quote">"</div>
+        <p class="test-text">I found the exact street corner where my grandfather's 1960 photo was taken. GeoTrace identified it as Shibuya, Tokyo within seconds — confirmed with Google Street View.</p>
+        <div class="test-author">
+          <div class="test-av">M</div>
+          <div><div class="test-name">Marco Tanaka</div><div class="test-role">Photography Historian</div></div>
+        </div>
+      </div>
+      <div class="test-card reveal reveal-delay-1">
+        <div class="test-quote">"</div>
+        <p class="test-text">As a travel journalist, I use GeoTrace to verify locations in user-submitted photos. The confidence scores are remarkably accurate — it's become indispensable to my workflow.</p>
+        <div class="test-author">
+          <div class="test-av" style="background:linear-gradient(135deg,var(--c),var(--g))">S</div>
+          <div><div class="test-name">Sophia Laurent</div><div class="test-role">Travel Journalist</div></div>
+        </div>
+      </div>
+      <div class="test-card reveal reveal-delay-2">
+        <div class="test-quote">"</div>
+        <p class="test-text">The AI vision analysis is genuinely impressive. It identified a small village in the Dolomites just from the architectural style and mountain silhouette. Incredible technology.</p>
+        <div class="test-author">
+          <div class="test-av" style="background:linear-gradient(135deg,var(--p),var(--v))">A</div>
+          <div><div class="test-name">Alex Müller</div><div class="test-role">Mountaineer & Explorer</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTA ══ -->
+<section class="cta-section">
+  <div class="cta-card reveal">
+    <div class="cta-blob"></div>
+    <h2 class="cta-title">READY TO LOCATE<br>ANY PHOTO?</h2>
+    <p class="cta-sub">Start analyzing photos instantly — no setup required. Just sign in with Google, paste your Anthropic API key, and upload.</p>
+    <a href="/login" class="btn-primary" style="margin:0 auto">🚀 Get Started Free</a>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand-logo">GEO<span>TRACE</span></div>
+      <p class="footer-brand-desc">AI-powered photo geolocation using Claude Vision and EXIF GPS extraction. Find where any photo was taken.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="/live">Live Tracker</a></li>
+        <li><a href="/login">Sign In</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Technology</h4>
+      <ul>
+        <li><a href="https://www.anthropic.com" target="_blank">Anthropic Claude</a></li>
+        <li><a href="https://firebase.google.com" target="_blank">Firebase</a></li>
+        <li><a href="https://leafletjs.com" target="_blank">Leaflet.js</a></li>
+        <li><a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 GeoTrace. Built with Claude AI.</span>
+    <span class="footer-mono">v2.0.0</span>
+  </div>
+</footer>
+
+<script>
+/* ══ CURSOR ══ */
+const dot=document.getElementById('cur-dot'),ring=document.getElementById('cur-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  dot.style.left=mx+'px';dot.style.top=my+'px';
+});
+(function loop(){
+  rx+=(mx-rx)*.13;ry+=(my-ry)*.13;
+  ring.style.left=rx+'px';ring.style.top=ry+'px';
+  requestAnimationFrame(loop);
+})();
+document.querySelectorAll('a,button').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{ring.style.width='52px';ring.style.height='52px';ring.style.borderColor='rgba(167,139,250,.65)'});
+  el.addEventListener('mouseleave',()=>{ring.style.width='38px';ring.style.height='38px';ring.style.borderColor='rgba(167,139,250,.35)'});
+});
+
+/* ══ NAV SCROLL ══ */
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>nav.classList.toggle('scrolled',window.scrollY>50),{passive:true});
+
+/* ══ PARTICLE CANVAS ══ */
+(function(){
+  const canvas=document.getElementById('pc'),ctx=canvas.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',()=>{resize();init()});
+  function init(){
+    pts=Array.from({length:55},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      r:Math.random()*1.6+.4,
+      c:['#7c3aed','#06b6d4','#e879f9'][Math.floor(Math.random()*3)]
+    }));
+  }
+  init();
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;
+      if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.c+'30';ctx.fill();
+    });
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<90){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(124,58,237,${(1-d/90)*.1})`;ctx.lineWidth=.5;ctx.stroke()}
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ══ TYPEWRITER ══ */
+(function(){
+  const el=document.getElementById('tw-text');
+  const words=['PHOTO','IMAGE','MOMENT','MEMORY','PICTURE','SCENE'];
+  let wi=0,ci=0,deleting=false;
+  function tick(){
+    const word=words[wi];
+    el.textContent=deleting?word.slice(0,ci--):word.slice(0,ci++);
+    if(!deleting&&ci>word.length){setTimeout(()=>{deleting=true;tick()},1800);return}
+    if(deleting&&ci<0){deleting=false;wi=(wi+1)%words.length;ci=0}
+    setTimeout(tick,deleting?60:110);
+  }
+  setTimeout(tick,1200);
+})();
+
+/* ══ REVEAL ON SCROLL ══ */
+(function(){
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}});
+  },{threshold:.1});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+})();
+
+/* ══ COUNTER ANIMATION ══ */
+(function(){
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(!e.isIntersecting)return;
+      const el=e.target,end=parseFloat(el.dataset.count),suf=el.dataset.suffix||'',dur=2000,start=performance.now();
+      (function tick(now){
+        const p=Math.min((now-start)/dur,1),ease=1-Math.pow(1-p,3),val=end*ease;
+        el.textContent=(Number.isInteger(end)?Math.round(val):val.toFixed(1))+suf;
+        if(p<1)requestAnimationFrame(tick);
+      })(start);
+      io.unobserve(el);
+    });
+  },{threshold:.5});
+  document.querySelectorAll('[data-count]').forEach(el=>io.observe(el));
+})();
+</script>
+</body>
+</html>
