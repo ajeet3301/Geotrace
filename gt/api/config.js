@@ -1,24 +1,45 @@
+/* ================================================================
+   GEOTRACE — api/config.js
+   Serves Firebase public config from Vercel Environment Variables.
+   This way your Firebase config is NEVER hardcoded in your code.
+
+   Add these in Vercel Dashboard → Settings → Environment Variables:
+   - FIREBASE_API_KEY
+   - FIREBASE_AUTH_DOMAIN
+   - FIREBASE_PROJECT_ID
+   - FIREBASE_STORAGE_BUCKET
+   - FIREBASE_MESSAGING_SENDER_ID
+   - FIREBASE_APP_ID
+   ================================================================ */
+
 export default function handler(req, res) {
-  res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Cache-Control', 'no-store');
-  const admins = (process.env.ADMIN_EMAILS || '')
-    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-  res.send(`
-window.firebaseConfig = {
-  apiKey:            "${process.env.FIREBASE_API_KEY             || ''}",
-  authDomain:        "${process.env.FIREBASE_AUTH_DOMAIN         || ''}",
-  projectId:         "${process.env.FIREBASE_PROJECT_ID          || ''}",
-  storageBucket:     "${process.env.FIREBASE_STORAGE_BUCKET      || ''}",
-  messagingSenderId: "${process.env.FIREBASE_MESSAGING_SENDER_ID || ''}",
-  appId:             "${process.env.FIREBASE_APP_ID              || ''}"
-};
-window.APP_CONFIG = {
-  appName:        "GeoTrace",
-  version:        "2.0.0",
-  adminEmails:    ${JSON.stringify(admins)},
-  maxFileSizeMB:  10,
-  historyLimit:   50,
-  anthropicModel: "claude-sonnet-4-6"
-};
-`);
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const config = {
+    apiKey:            process.env.FIREBASE_API_KEY,
+    authDomain:        process.env.FIREBASE_AUTH_DOMAIN,
+    projectId:         process.env.FIREBASE_PROJECT_ID,
+    storageBucket:     process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId:             process.env.FIREBASE_APP_ID,
+  };
+
+  // Check all values are set
+  const missing = Object.entries(config)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+
+  if (missing.length > 0) {
+    return res.status(500).json({
+      error: 'Missing Vercel environment variables: ' + missing.join(', '),
+    });
+  }
+
+  // Cache for 1 hour (config rarely changes)
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  return res.status(200).json(config);
 }

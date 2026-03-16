@@ -1,77 +1,175 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GeoTrace — Admin</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/app.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoTrace — Admin Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Chart.js for analytics -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
-<div class="cur-dot" id="cur-dot"></div>
-<div class="cur-ring" id="cur-ring"></div>
-<canvas id="pc"></canvas>
-<div class="orb o1"></div><div class="orb o2"></div>
 
-<aside class="sidebar">
-  <div class="sb-logo"><div class="sb-dot"></div><div class="sb-name">ADMIN<span>.</span></div></div>
-  <nav class="sb-nav">
-    <button class="nav-item active" data-view="overview">📊 Overview</button>
-    <button class="nav-item" data-view="users">👥 Users</button>
-    <button class="nav-item" data-view="searches">🔍 Searches</button>
-    <div class="nav-sep"></div>
-    <a href="/app" class="nav-item">📸 Analyzer</a>
-    <a href="/live" class="nav-item">📡 Live Tracker</a>
-    <div class="nav-sep"></div>
-    <button class="nav-item danger" id="btn-signout">🚪 Sign Out</button>
+<div id="cursor-dot"  aria-hidden="true"></div>
+<div id="cursor-ring" aria-hidden="true"></div>
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+<div class="orb orb-1" aria-hidden="true"></div>
+<div class="orb orb-2" aria-hidden="true"></div>
+
+<div class="site-wrap">
+
+  <nav class="nav scrolled">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">
+        <div class="nav-logo-dot"></div>
+        Geo<span>Trace</span>
+      </a>
+      <span class="admin-badge">ADMIN PANEL</span>
+      <div id="adminAuthArea">
+        <button id="adminSignInBtn" class="btn-primary" style="padding:9px 20px;font-size:13px;">Sign in as Admin</button>
+        <div id="adminUserInfo" style="display:none;">
+          <img id="adminAvatar" src="" class="user-avatar" alt="Avatar">
+          <span id="adminUserName" style="font-size:13px;font-weight:600;"></span>
+          <button id="adminSignOutBtn" class="btn-ghost" style="padding:7px 14px;font-size:12px;">Sign out</button>
+        </div>
+      </div>
+    </div>
   </nav>
-  <div class="sb-user">
-    <div class="sb-av" id="sb-avatar"></div>
-    <div><div class="sb-un" id="sb-name">Loading…</div><div class="sb-ue" id="sb-email"></div></div>
-  </div>
-</aside>
 
-<main class="main">
-  <div class="topbar"><div class="topbar-title">⚙️ ADMIN DASHBOARD</div></div>
-
-  <div class="view active" id="view-overview">
-    <div class="view-hdr"><h2 class="view-h2">OVERVIEW</h2></div>
-    <div class="stats-grid">
-      <div class="stat-card sc-v"><div class="sc-icon">👥</div><div class="sc-val" id="stat-users">—</div><div class="sc-lbl">Total Users</div></div>
-      <div class="stat-card sc-c"><div class="sc-icon">🔍</div><div class="sc-val" id="stat-searches">—</div><div class="sc-lbl">Total Searches</div></div>
-      <div class="stat-card sc-g"><div class="sc-icon">📅</div><div class="sc-val" id="stat-today">—</div><div class="sc-lbl">Today's Searches</div></div>
-      <div class="stat-card" style="border-color:rgba(251,191,36,.3)"><div class="sc-icon">🎯</div><div class="sc-val" id="stat-conf" style="color:#fbbf24">—</div><div class="sc-lbl">Avg Confidence</div></div>
+  <!-- ACCESS DENIED STATE -->
+  <div id="accessDenied" class="admin-gate" style="display:none;">
+    <div class="admin-gate-inner glass">
+      <div style="font-size:64px;margin-bottom:16px;">🔐</div>
+      <h2 style="font-family:var(--font-display);font-size:36px;margin-bottom:8px;">ACCESS DENIED</h2>
+      <p style="color:var(--text-secondary);">Your account does not have admin privileges.</p>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">Contact a super-admin to grant access.</p>
+      <a href="index.html" class="btn-ghost" style="margin-top:24px;">← Back to home</a>
     </div>
   </div>
 
-  <div class="view" id="view-users">
-    <div class="view-hdr"><h2 class="view-h2">ALL USERS</h2></div>
-    <div class="panel" style="overflow-x:auto">
-      <table class="data-table">
-        <thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>SEARCHES</th><th>LAST LOGIN</th></tr></thead>
-        <tbody id="users-tbody"><tr><td colspan="5"><div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></td></tr></tbody>
-      </table>
+  <!-- SIGN-IN GATE -->
+  <div id="signInGate" class="admin-gate">
+    <div class="admin-gate-inner glass">
+      <div style="font-size:64px;margin-bottom:16px;">🛰️</div>
+      <h2 style="font-family:var(--font-display);font-size:36px;margin-bottom:8px;">ADMIN ACCESS</h2>
+      <p style="color:var(--text-secondary);margin-bottom:24px;">Sign in with your admin Google account to access the dashboard.</p>
+      <button id="gateSignInBtn" class="btn-primary">Sign in with Google →</button>
     </div>
   </div>
 
-  <div class="view" id="view-searches">
-    <div class="view-hdr"><h2 class="view-h2">ALL SEARCHES</h2></div>
-    <div class="panel" style="overflow-x:auto">
-      <table class="data-table">
-        <thead><tr><th>FILE</th><th>LOCATION</th><th>CONFIDENCE</th><th>SOURCE</th><th>DATE</th></tr></thead>
-        <tbody id="searches-tbody"><tr><td colspan="5"><div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div></td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</main>
+  <!-- ADMIN DASHBOARD (shown after auth) -->
+  <main class="admin-main" id="adminDashboard" style="display:none;">
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="/js/config.js"></script>
-<script src="/js/particles.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/admin.js"></script>
+    <!-- Stats row -->
+    <div class="admin-stats-row">
+      <div class="glass admin-stat-card glow-violet">
+        <div class="admin-stat-icon">👥</div>
+        <div class="admin-stat-num" id="statUsers">—</div>
+        <div class="admin-stat-label">TOTAL USERS</div>
+      </div>
+      <div class="glass admin-stat-card glow-cyan">
+        <div class="admin-stat-icon">🔍</div>
+        <div class="admin-stat-num" id="statSearches">—</div>
+        <div class="admin-stat-label">TOTAL SEARCHES</div>
+      </div>
+      <div class="glass admin-stat-card glow-pink">
+        <div class="admin-stat-icon">🛰️</div>
+        <div class="admin-stat-num" id="statExifHits">—</div>
+        <div class="admin-stat-label">EXIF GPS HITS</div>
+      </div>
+      <div class="glass admin-stat-card glow-gold">
+        <div class="admin-stat-icon">🤖</div>
+        <div class="admin-stat-num" id="statAIHits">—</div>
+        <div class="admin-stat-label">AI ANALYSES</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="admin-charts-row">
+      <div class="glass admin-chart-card">
+        <div class="panel-card-head">
+          <span class="panel-card-title">📊 SEARCHES BY SOURCE</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="sourceChart"></canvas>
+        </div>
+      </div>
+      <div class="glass admin-chart-card">
+        <div class="panel-card-head">
+          <span class="panel-card-title">📈 SEARCHES OVER TIME</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="timeChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users table -->
+    <div class="glass admin-table-card">
+      <div class="panel-card-head">
+        <span class="panel-card-title">👥 ALL USERS</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="userSearch" type="text" placeholder="Search users..." class="admin-search-input">
+          <button id="exportUsersBtn" class="map-btn">⬇ Export JSON</button>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Searches</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent searches table -->
+    <div class="glass admin-table-card">
+      <div class="panel-card-head">
+        <span class="panel-card-title">🔍 RECENT SEARCHES (ALL USERS)</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="exportSearchesBtn" class="map-btn">⬇ Export JSON</button>
+          <button id="refreshAllBtn" class="map-btn">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="searchesTable">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Location</th>
+              <th>Source</th>
+              <th>Confidence</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="searchesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<script src="js/particles.js"></script>
+<script src="js/main.js"></script>
+<script type="module" src="js/admin.js"></script>
+
 </body>
 </html>

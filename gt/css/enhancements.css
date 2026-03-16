@@ -1,0 +1,322 @@
+/* ================================================================
+   GEOTRACE — enhancements.css
+   Visual effects: mouse glow, scroll reveals, ripple, signals,
+   glitch hover, tilt cards, scroll bar.
+   Never changes layout or colors — only adds effects.
+   ================================================================ */
+
+/* ================================================================
+   1. MOUSE-TRACKING SPOTLIGHT GLOW on cards
+   ================================================================ */
+.mouse-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(6, 182, 212, 0.1) 0%,
+    rgba(124, 58, 237, 0.06) 40%,
+    transparent 70%
+  );
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.mouse-glow > * { position: relative; z-index: 1; }
+
+/* ================================================================
+   2. ENHANCED SCROLL FADE-IN (supplement existing .reveal)
+   ================================================================ */
+.enhance-child {
+  opacity: 0;
+  transform: translateY(24px) scale(0.98);
+  transition:
+    opacity    0.6s cubic-bezier(0.16,1,0.3,1),
+    transform  0.6s cubic-bezier(0.16,1,0.3,1);
+}
+
+.enhance-child.enhance-visible {
+  opacity:   1;
+  transform: translateY(0) scale(1);
+}
+
+/* ================================================================
+   3. BUTTON RIPPLE
+   ================================================================ */
+@keyframes ripple-expand {
+  to {
+    width:   200px;
+    height:  200px;
+    opacity: 0;
+  }
+}
+
+/* ================================================================
+   4. MAP SIGNAL PULSE RINGS
+   ================================================================ */
+@keyframes signal-pulse {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+/* ================================================================
+   5. ENHANCED BUTTON HOVER GLOW
+   ================================================================ */
+.btn-primary {
+  will-change: transform, box-shadow;
+}
+
+.btn-primary:hover {
+  transform:  translateY(-3px) scale(1.02) !important;
+  box-shadow: 0 0 40px rgba(124,58,237,0.5), 0 0 80px rgba(6,182,212,0.2),
+              0 12px 32px rgba(0,0,0,0.5) !important;
+}
+
+.btn-ghost:hover {
+  box-shadow: 0 0 24px rgba(6,182,212,0.25),
+              inset 0 0 20px rgba(6,182,212,0.05) !important;
+}
+
+/* Feature cards enhanced hover */
+.feature-card {
+  will-change: transform, box-shadow;
+  transition:
+    transform  0.3s cubic-bezier(0.34,1.56,0.64,1),
+    box-shadow 0.3s ease !important;
+}
+
+.feature-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(6,182,212,0.2),
+    0 8px 32px rgba(0,0,0,0.4),
+    0 0 40px rgba(6,182,212,0.08) !important;
+}
+
+/* Stat cards */
+.stat-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(124,58,237,0.25),
+    0 12px 40px rgba(0,0,0,0.5),
+    0 0 60px rgba(124,58,237,0.1) !important;
+}
+
+/* ================================================================
+   6. SECTION TITLE GLITCH on hover
+   ================================================================ */
+@keyframes glitch-shift {
+  0%   { text-shadow: none; }
+  20%  { text-shadow:  3px 0 0 rgba(6,182,212,0.7), -3px 0 0 rgba(232,121,249,0.7); clip-path: inset(10% 0 80% 0); }
+  40%  { text-shadow: -3px 0 0 rgba(6,182,212,0.7),  3px 0 0 rgba(232,121,249,0.7); clip-path: inset(60% 0 20% 0); }
+  60%  { text-shadow:  2px 0 0 rgba(124,58,237,0.7), -2px 0 0 rgba(6,182,212,0.7);  clip-path: inset(40% 0 40% 0); }
+  80%  { text-shadow: none; clip-path: none; }
+  100% { text-shadow: none; clip-path: none; }
+}
+
+.glitch-hover {
+  animation: glitch-shift 0.5s steps(1) both;
+}
+
+/* ================================================================
+   7. NAV LINK enhanced underline
+   ================================================================ */
+.nav-link::after {
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet), var(--neon-pink)) !important;
+  background-size: 200% 100% !important;
+  animation: gradient-flow 2s ease infinite !important;
+}
+
+/* ================================================================
+   8. TRUST LOGO enhanced hover
+   ================================================================ */
+.trust-logo {
+  transition: color 0.3s, text-shadow 0.3s, opacity 0.3s !important;
+}
+
+.trust-logo:hover {
+  color:       var(--neon-cyan) !important;
+  text-shadow: 0 0 12px rgba(6,182,212,0.6) !important;
+  opacity:     1 !important;
+}
+
+/* ================================================================
+   9. HERO STATS counter glow on load
+   ================================================================ */
+.hero-stat-num {
+  text-shadow: 0 0 30px rgba(124,58,237,0.3);
+  transition:  text-shadow 0.3s;
+}
+
+.hero-stat:hover .hero-stat-num {
+  text-shadow: 0 0 40px rgba(6,182,212,0.5), 0 0 80px rgba(6,182,212,0.2);
+}
+
+/* ================================================================
+   10. HOW-IT-WORKS step enhanced hover
+   ================================================================ */
+.how-step {
+  transition: background 0.3s, transform 0.3s, box-shadow 0.3s !important;
+}
+
+.how-step:hover {
+  box-shadow: 0 0 0 1px rgba(6,182,212,0.1),
+              0 4px 20px rgba(0,0,0,0.3) !important;
+}
+
+.how-step:hover .step-num {
+  color:       var(--neon-cyan) !important;
+  text-shadow: 0 0 20px rgba(6,182,212,0.4) !important;
+}
+
+/* ================================================================
+   11. UPLOAD ZONE pulse ring
+   ================================================================ */
+@keyframes upload-ring-pulse {
+  0%,100% { box-shadow: 0 0 0 0   rgba(6,182,212,0.3); }
+  50%     { box-shadow: 0 0 0 12px rgba(6,182,212,0); }
+}
+
+.upload-zone:not(.drag-over) {
+  animation: upload-ring-pulse 3s ease-in-out infinite;
+}
+
+/* ================================================================
+   12. GLASS CARD inner shimmer
+   ================================================================ */
+@keyframes glass-shimmer {
+  0%   { transform: translateX(-150%) rotate(25deg); }
+  100% { transform: translateX(300%)  rotate(25deg); }
+}
+
+.glass::after {
+  content:    '';
+  position:   absolute;
+  top:     -40%;
+  left:    -40%;
+  width:   30%;
+  height:  180%;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255,255,255,0.025) 50%,
+    transparent 60%
+  );
+  animation:     glass-shimmer 8s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Don't double-apply on elements that already have ::after */
+.hero-img-main::after,
+.cta-box::after,
+.feature-icon::after { /* These already use ::after */ }
+
+/* ================================================================
+   13. FOOTER SOCIAL BUTTONS enhanced
+   ================================================================ */
+.social-btn:hover {
+  transform:   translateY(-3px) rotate(10deg) !important;
+  box-shadow:  0 0 20px rgba(6,182,212,0.3) !important;
+  transition:  all 0.2s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+
+/* ================================================================
+   14. MARQUEE ITEM enhanced
+   ================================================================ */
+.marquee-item::after {
+  content:    '';
+  position:   absolute;
+  inset:      0;
+  background: linear-gradient(135deg, transparent 60%, rgba(124,58,237,0.15));
+  opacity:    0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.marquee-item:hover::after { opacity: 1; }
+
+/* ================================================================
+   15. INPUT FIELDS glow on focus
+   ================================================================ */
+input:focus, textarea:focus {
+  box-shadow: 0 0 0 2px rgba(6,182,212,0.25),
+              0 0 20px rgba(6,182,212,0.1) !important;
+}
+
+/* ================================================================
+   16. SCROLL PROGRESS BAR (added by enhancements.js)
+   ================================================================ */
+/* Styles injected inline by JS */
+
+/* ================================================================
+   17. MAP RESULT CARD entrance
+   ================================================================ */
+.location-result {
+  animation: result-slide-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both !important;
+}
+
+@keyframes result-slide-in {
+  from { transform: translateY(20px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* ================================================================
+   18. EXIF TABLE ROW highlight
+   ================================================================ */
+.exif-table tr {
+  transition: background 0.15s !important;
+}
+
+.exif-table tr:hover {
+  background: rgba(6,182,212,0.05) !important;
+}
+
+.exif-table tr:hover td:first-child {
+  color: var(--neon-cyan) !important;
+}
+
+/* ================================================================
+   19. NEON IMAGE hover intensify
+   ================================================================ */
+.neon-img {
+  transition: box-shadow 0.3s, transform 0.3s !important;
+}
+
+.neon-img:hover {
+  box-shadow: 0 0 40px rgba(6,182,212,0.4), 0 0 80px rgba(6,182,212,0.15) !important;
+  transform:  scale(1.02) !important;
+}
+
+/* ================================================================
+   20. HISTORY ITEM hover
+   ================================================================ */
+.history-item {
+  transition: background 0.15s, padding-left 0.2s !important;
+}
+
+.history-item:hover {
+  background:   rgba(6,182,212,0.06) !important;
+  padding-left: 28px !important;
+  border-left:  2px solid rgba(6,182,212,0.4) !important;
+}
+
+/* ================================================================
+   REDUCED MOTION — respect user preference
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .enhance-child,
+  .feature-card,
+  .stat-card,
+  .glass::after,
+  .neon-img,
+  .upload-zone {
+    animation:  none !important;
+    transition: none !important;
+  }
+
+  .btn-primary:hover,
+  .btn-ghost:hover {
+    transform: none !important;
+  }
+}

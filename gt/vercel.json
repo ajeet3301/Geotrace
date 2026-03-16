@@ -1,17 +1,16 @@
 {
-  "routes": [
-    { "src": "/js/config.js",  "dest": "/api/config"  },
-    { "src": "/login",         "dest": "/login.html"  },
-    { "src": "/app",           "dest": "/app.html"    },
-    { "src": "/admin",         "dest": "/admin.html"  },
-    { "src": "/live",          "dest": "/live.html"   }
-  ],
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control",                "value": "no-store" },
-        { "key": "Access-Control-Allow-Origin",  "value": "*"        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }
   ]

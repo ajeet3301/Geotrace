@@ -1,202 +1,688 @@
-GT_Auth.initFirebase();
+/* ================================================================
+   GEOTRACE — app.js
+   Main application: EXIF extraction, Leaflet map, Claude AI,
+   Firebase auth & Firestore history
+   ================================================================ */
 
-let currentUser, currentProfile, currentFile, leafletMap, leafletMarker;
+import {
+  auth, onAuthStateChanged,
+  signInWithGoogle, signOutUser,
+  saveSearch, getMySearches,
+} from './firebase-config.js';
 
-const toast = (msg, type = 'info') => {
-  let wrap = document.querySelector('.toast-wrap');
-  if (!wrap) { wrap = document.createElement('div'); wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
-  const t = document.createElement('div');
-  t.className = `toast toast-${type}`;
-  t.textContent = msg;
-  wrap.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
-};
+/* ================================================================
+   STATE
+   ================================================================ */
+let currentUser  = null;
+let currentFile  = null;
+let currentExif  = null;
+let mapInstance  = null;
+let mapMarker    = null;
+let lastResult   = null;
 
-GT_Auth.requireAuth((user, profile) => {
-  currentUser = user; currentProfile = profile;
-  GT_Auth.setupSidebarUser(user);
-  GT_Auth.setupSignOut();
-  GT_Auth.setupNavItems();
-  GT_Auth.setupCursor();
-  new ParticleSystem('pc', { count: 40 });
+/* ================================================================
+   DOM REFS
+   ================================================================ */
+const $ = (id) => document.getElementById(id);
 
-  const savedKey = sessionStorage.getItem('gt_apikey');
-  if (savedKey) document.getElementById('api-input').value = savedKey;
-  document.getElementById('btn-save-key').addEventListener('click', () => {
-    const k = document.getElementById('api-input').value.trim();
-    if (!k) { toast('Please enter your API key', 'error'); return; }
-    sessionStorage.setItem('gt_apikey', k);
-    toast('API key saved for this session', 'success');
-  });
+const uploadZone    = $('uploadZone');
+const fileInput     = $('fileInput');
+const imgPreviewWrap = $('imgPreviewWrap');
+const imgPreview    = $('imgPreview');
+const imgFilename   = $('imgFilename');
+const clearImgBtn   = $('clearImg');
 
-  setupUpload();
-  setupAnalyzer();
-  setupMap();
+const exifPanel     = $('exifPanel');
+const exifTable     = $('exifTable').querySelector('tbody');
+const exifGpsStatus = $('exifGpsStatus');
 
-  document.querySelectorAll('[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.view === 'history') loadHistory();
-    });
-  });
+const aiPanel       = $('aiPanel');
+const aiStatus      = $('aiStatus');
+const aiContent     = $('aiContent');
+const runAIBtn      = $('runAIBtn');
 
-  if (profile?.isAdmin) {
-    const li = document.createElement('button');
-    li.className = 'nav-item';
-    li.innerHTML = '⚙️ Admin';
-    li.onclick = () => window.location.href = '/admin';
-    document.querySelector('.nav-sep')?.before(li);
+const mapEl         = $('map');
+const mapPlaceholder = $('mapPlaceholder');
+const locationResult = $('locationResult');
+const resultAddress = $('resultAddress');
+const resultCoords  = $('resultCoords');
+const resultSource  = $('resultSource');
+const resultConfidence = $('resultConfidence');
+const copyCoordsBtn = $('copyCoords');
+const openMapsBtn   = $('openMaps');
+
+const signInBtn     = $('signInBtn');
+const signOutBtn    = $('signOutBtn');
+const userInfo      = $('userInfo');
+const userAvatar    = $('userAvatar');
+const userName      = $('userName');
+
+const apiKeyInput   = $('apiKeyInput');
+const apiKeyToggle  = $('apiKeyToggle');
+const apiKeyStatus  = $('apiKeyStatus');
+
+const historyPanel  = $('historyPanel');
+const historyList   = $('historyList');
+const refreshHistBtn = $('refreshHistory');
+
+const toast = (msg, type, dur) => window.GeoTrace?.toast(msg, type, dur);
+
+/* ================================================================
+   API KEY MANAGEMENT
+   ================================================================ */
+// Load saved key from sessionStorage (never localStorage for security)
+function loadApiKey() {
+  const saved = sessionStorage.getItem('gt_api_key');
+  if (saved) {
+    apiKeyInput.value = saved;
+    apiKeyStatus.textContent = '● SAVED';
+    apiKeyStatus.className   = 'api-key-status ok';
+  }
+}
+
+function getApiKey() {
+  return apiKeyInput.value.trim();
+}
+
+apiKeyInput.addEventListener('input', () => {
+  const key = apiKeyInput.value.trim();
+  if (key.startsWith('sk-ant-')) {
+    sessionStorage.setItem('gt_api_key', key);
+    apiKeyStatus.textContent = '● SAVED';
+    apiKeyStatus.className   = 'api-key-status ok';
+  } else if (key) {
+    apiKeyStatus.textContent = '● INVALID';
+    apiKeyStatus.className   = 'api-key-status err';
+  } else {
+    apiKeyStatus.textContent = '';
+    sessionStorage.removeItem('gt_api_key');
+  }
+  updateAIPanel();
+});
+
+apiKeyToggle.addEventListener('click', () => {
+  apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+});
+
+/* ================================================================
+   AUTH
+   ================================================================ */
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  if (user) {
+    signInBtn.style.display  = 'none';
+    userInfo.style.display   = 'flex';
+    userAvatar.src           = user.photoURL || '';
+    userName.textContent     = user.displayName || user.email;
+    historyPanel.style.display = 'block';
+    loadHistory();
+  } else {
+    signInBtn.style.display  = 'inline-block';
+    userInfo.style.display   = 'none';
+    historyPanel.style.display = 'none';
   }
 });
 
+signInBtn.addEventListener('click', async () => {
+  try {
+    await signInWithGoogle();
+  } catch (e) {
+    toast('Sign-in failed: ' + e.message, 'error');
+  }
+});
+
+signOutBtn.addEventListener('click', async () => {
+  await signOutUser();
+  toast('Signed out', 'info');
+});
+
+/* ================================================================
+   FILE UPLOAD
+   ================================================================ */
 function setupUpload() {
-  const zone = document.getElementById('upload-zone');
-  const input = document.getElementById('file-input');
-  const btnA = document.getElementById('btn-analyze');
-
-  zone.addEventListener('click', () => input.click());
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('dragover');
-    handleFile(e.dataTransfer.files[0]);
+  // Click to browse
+  uploadZone.addEventListener('click', () => fileInput.click());
+  uploadZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') fileInput.click();
   });
-  input.addEventListener('change', () => handleFile(input.files[0]));
 
-  async function handleFile(file) {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) { toast('Please upload an image file', 'error'); return; }
-    if (file.size > 10 * 1024 * 1024) { toast('File too large — max 10MB', 'error'); return; }
-    currentFile = file;
-    btnA.disabled = false;
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
 
-    const reader = new FileReader();
-    reader.onload = e => {
-      const prev = document.getElementById('panel-preview');
-      document.getElementById('img-preview').src = e.target.result;
-      prev.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+  // Drag & drop
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) handleFile(f);
+    else toast('Please drop an image file', 'warn');
+  });
 
-    const exif = await GT_Geo.extractExif(file);
+  clearImgBtn.addEventListener('click', clearAll);
+}
+
+async function handleFile(file) {
+  currentFile = file;
+  resetResults();
+
+  // Show preview
+  const url = URL.createObjectURL(file);
+  imgPreview.src        = url;
+  imgFilename.textContent = file.name;
+  imgPreviewWrap.style.display = 'block';
+  uploadZone.style.display     = 'none';
+
+  // Parse EXIF
+  try {
+    toast('Reading EXIF metadata...', 'info', 2000);
+    const exif = await exifr.parse(file, {
+      tiff: true, exif: true, gps: true,
+      icc: false, iptc: false, xmp: false,
+      mergeOutput: false,
+    });
+    currentExif = exif;
     renderExif(exif);
-    const gps = GT_Geo.getGpsFromExif(exif);
-    if (gps) {
-      toast('📍 GPS coordinates found in EXIF!', 'success');
-      renderMap(gps.lat, gps.lon, 'EXIF GPS');
+  } catch (err) {
+    console.warn('EXIF parse error:', err);
+    renderExif(null);
+  }
+
+  // Show AI panel
+  aiPanel.style.display = 'block';
+  updateAIPanel();
+}
+
+function clearAll() {
+  currentFile = null;
+  currentExif = null;
+  lastResult  = null;
+  imgPreview.src = '';
+  imgPreviewWrap.style.display = 'none';
+  uploadZone.style.display     = 'block';
+  exifPanel.style.display      = 'none';
+  aiPanel.style.display        = 'none';
+  resetMapUI();
+  fileInput.value = '';
+}
+
+function resetResults() {
+  resetMapUI();
+}
+
+/* ================================================================
+   EXIF RENDERING
+   ================================================================ */
+const EXIF_LABELS = {
+  Make:             'Camera make',
+  Model:            'Camera model',
+  Software:         'Software',
+  DateTime:         'Date & time',
+  DateTimeOriginal: 'Taken at',
+  ExposureTime:     'Exposure',
+  FNumber:          'Aperture',
+  ISOSpeedRatings:  'ISO',
+  FocalLength:      'Focal length',
+  Flash:            'Flash',
+  GPSLatitude:      'GPS Latitude',
+  GPSLongitude:     'GPS Longitude',
+  GPSAltitude:      'GPS Altitude',
+  ImageWidth:       'Width',
+  ImageHeight:      'Height',
+  Orientation:      'Orientation',
+  ColorSpace:       'Color space',
+  WhiteBalance:     'White balance',
+  PixelXDimension:  'Pixel width',
+  PixelYDimension:  'Pixel height',
+};
+
+function renderExif(exif) {
+  exifPanel.style.display = 'block';
+  exifTable.innerHTML = '';
+
+  if (!exif || Object.keys(exif).length === 0) {
+    exifGpsStatus.textContent = 'NO EXIF';
+    exifGpsStatus.className   = 'exif-badge badge-red';
+    const row = exifTable.insertRow();
+    row.innerHTML = `<td colspan="2" style="color:var(--text-muted);padding:var(--s4)">No EXIF metadata found in this image.</td>`;
+    return;
+  }
+
+  // Flatten nested exif sections
+  const flat = {};
+  Object.entries(exif).forEach(([section, data]) => {
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      Object.entries(data).forEach(([k, v]) => { flat[k] = v; });
     }
-    zone.innerHTML = `<div class="upload-icon">✅</div><div class="upload-txt">${file.name}</div><div class="upload-sub">${(file.size/1024).toFixed(0)} KB — click to change</div>`;
+  });
+
+  // Check for GPS
+  const lat = flat.latitude  ?? flat.GPSLatitude;
+  const lng = flat.longitude ?? flat.GPSLongitude;
+  const hasGPS = lat != null && lng != null;
+
+  if (hasGPS) {
+    exifGpsStatus.textContent = '✓ GPS FOUND';
+    exifGpsStatus.className   = 'exif-badge badge-green';
+    // Auto-locate from EXIF GPS
+    setTimeout(() => locateFromGPS(lat, lng), 300);
+  } else {
+    exifGpsStatus.textContent = 'NO GPS';
+    exifGpsStatus.className   = 'exif-badge badge-red';
+  }
+
+  // Render table
+  const allKeys = new Set([
+    ...Object.keys(EXIF_LABELS),
+    ...Object.keys(flat).slice(0, 30),
+  ]);
+
+  let rowCount = 0;
+  allKeys.forEach((key) => {
+    let val = flat[key];
+    if (val == null) return;
+    if (rowCount > 25) return;
+
+    const label = EXIF_LABELS[key] || key;
+    const isGPS = key.startsWith('GPS') || key === 'latitude' || key === 'longitude';
+
+    // Format values
+    if (typeof val === 'number') val = Number(val.toFixed(6)).toString();
+    if (val instanceof Date)     val = val.toLocaleString();
+    if (typeof val === 'object') val = JSON.stringify(val).slice(0, 60);
+    val = String(val).slice(0, 80);
+
+    const row = exifTable.insertRow();
+    row.innerHTML = `
+      <td>${label}</td>
+      <td class="${isGPS ? 'gps-highlight' : ''}">${escapeHtml(val)}</td>
+    `;
+    rowCount++;
+  });
+}
+
+/* ================================================================
+   GPS LOCATE & MAP
+   ================================================================ */
+async function locateFromGPS(lat, lng) {
+  toast('📍 GPS data found! Plotting on map...', 'success', 2500);
+  showMap(lat, lng);
+
+  // Reverse geocode via Nominatim (free/open-source)
+  try {
+    const res  = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    const addr = data.display_name || `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+
+    showLocationResult({
+      lat, lng, address: addr, source: 'EXIF GPS', confidence: null,
+    });
+
+    lastResult = { lat, lng, address: addr, source: 'exif', exifData: currentExif };
+    saveResultToFirebase(addr);
+  } catch {
+    showLocationResult({ lat, lng, address: 'Reverse geocode unavailable', source: 'EXIF GPS', confidence: null });
   }
 }
 
-function setupAnalyzer() {
-  document.getElementById('btn-analyze').addEventListener('click', async () => {
-    if (!currentFile) return;
-    const apiKey = sessionStorage.getItem('gt_apikey');
-    if (!apiKey) { toast('Please enter your Anthropic API key first', 'error'); document.getElementById('api-input').focus(); return; }
+function showMap(lat, lng) {
+  mapPlaceholder.style.display = 'none';
+  mapEl.style.display          = 'block';
 
-    const btn = document.getElementById('btn-analyze');
-    btn.disabled = true; btn.textContent = '🔍 Analyzing with Claude AI…';
+  if (!mapInstance) {
+    mapInstance = L.map('map', {
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([lat, lng], 14);
 
-    const panelAI = document.getElementById('panel-ai');
-    panelAI.innerHTML = '<div class="panel-title">AI ANALYSIS</div><div style="display:flex;align-items:center;gap:10px;color:var(--muted2)"><div style="width:18px;height:18px;border:2px solid var(--v);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></div>Claude is analyzing your photo…</div>';
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(mapInstance);
+  } else {
+    mapInstance.setView([lat, lng], 14);
+    if (mapMarker) mapMarker.remove();
+  }
+
+  // Custom neon pin
+  const icon = L.divIcon({
+    html: `
+      <div style="
+        width:32px;height:32px;
+        background:linear-gradient(135deg,#7c3aed,#06b6d4);
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        box-shadow:0 0 20px rgba(6,182,212,0.6);
+        border:2px solid rgba(255,255,255,0.3);
+      "></div>
+    `,
+    className: '',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -36],
+  });
+
+  mapMarker = L.marker([lat, lng], { icon }).addTo(mapInstance);
+  mapMarker.bindPopup(`
+    <div style="font-family:var(--font-mono);font-size:12px;color:#06b6d4;">
+      📍 ${lat.toFixed(5)}°N, ${lng.toFixed(5)}°E
+    </div>
+  `).openPopup();
+
+  // Fix Leaflet sizing after show
+  setTimeout(() => mapInstance.invalidateSize(), 100);
+}
+
+function showLocationResult({ lat, lng, address, source, confidence }) {
+  locationResult.style.display = 'flex';
+  resultAddress.textContent    = address;
+  resultCoords.textContent     = `${Number(lat).toFixed(5)}°N, ${Number(lng).toFixed(5)}°E`;
+  resultSource.textContent     = `SOURCE: ${source}`;
+
+  if (confidence) {
+    resultConfidence.textContent = confidence + '%';
+    resultIcon.textContent       = '🎯';
+  } else {
+    resultConfidence.textContent = '';
+    resultIcon.textContent       = '📍';
+  }
+
+  // Show map controls
+  copyCoordsBtn.style.display = 'inline-block';
+  openMapsBtn.style.display   = 'inline-block';
+
+  copyCoordsBtn.onclick = () => {
+    navigator.clipboard.writeText(`${lat}, ${lng}`);
+    toast('Coordinates copied!', 'success', 2000);
+  };
+
+  openMapsBtn.onclick = () => {
+    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  };
+}
+
+function resetMapUI() {
+  mapEl.style.display          = 'none';
+  mapPlaceholder.style.display = 'flex';
+  locationResult.style.display = 'none';
+  copyCoordsBtn.style.display  = 'none';
+  openMapsBtn.style.display    = 'none';
+  if (mapMarker) { mapMarker.remove(); mapMarker = null; }
+}
+
+/* ================================================================
+   CLAUDE AI ANALYSIS
+   ================================================================ */
+function updateAIPanel() {
+  if (!currentFile) return;
+  const hasKey = getApiKey().startsWith('sk-ant-');
+  runAIBtn.style.display = hasKey ? 'inline-block' : 'none';
+
+  if (!hasKey) {
+    aiContent.innerHTML = `<p class="ai-placeholder">
+      Enter your Anthropic API key above to enable AI visual analysis.
+      <a href="https://console.anthropic.com" target="_blank" style="color:var(--neon-cyan)">Get a key →</a>
+    </p>`;
+  }
+}
+
+runAIBtn.addEventListener('click', runAIAnalysis);
+
+async function runAIAnalysis() {
+  const key = getApiKey();
+  if (!key.startsWith('sk-ant-')) {
+    toast('Please enter a valid Anthropic API key', 'error');
+    return;
+  }
+  if (!currentFile) return;
+
+  runAIBtn.disabled = true;
+  runAIBtn.textContent = 'Analyzing...';
+  aiStatus.textContent = 'RUNNING';
+  aiStatus.className   = 'exif-badge badge-gold';
+
+  aiContent.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px;">
+      <div class="spinner"></div>
+      <div style="font-family:var(--font-mono);font-size:12px;color:var(--neon-cyan);letter-spacing:2px;">CLAUDE IS ANALYZING...</div>
+      <div style="font-size:13px;color:var(--text-muted);">Examining landmarks, architecture, terrain...</div>
+    </div>
+  `;
+
+  try {
+    // Convert image to base64
+    const b64 = await fileToBase64(currentFile);
+    const mediaType = currentFile.type || 'image/jpeg';
+
+    // Call Anthropic API via Vercel serverless function
+    // (prevents CORS issues and keeps routing clean)
+    let response, data;
 
     try {
-      const exif = await GT_Geo.extractExif(currentFile);
-      const gps  = GT_Geo.getGpsFromExif(exif);
-      let result, method;
-
-      if (gps) {
-        const address = await GT_Geo.reverseGeocode(gps.lat, gps.lon);
-        result = { location: address || `${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}`, latitude: gps.lat, longitude: gps.lon, confidence: 100, reasoning: 'GPS coordinates extracted directly from EXIF metadata.', city: '', country: '' };
-        method = 'EXIF GPS';
-      } else {
-        result = await GT_Geo.analyzeWithClaude(currentFile, apiKey);
-        method = 'Claude AI';
-      }
-
-      renderAIResult(result, method);
-      renderMap(result.latitude, result.longitude, result.location);
-
-      const addr = document.getElementById('address-display');
-      addr.textContent = `📍 ${result.location}`;
-      addr.style.display = 'block';
-
-      await GT_Geo.saveSearch(window._db, currentUser.uid, {
-        fileName:   currentFile.name,
-        location:   result.location,
-        latitude:   result.latitude,
-        longitude:  result.longitude,
-        confidence: result.confidence,
-        method,
-        reasoning:  result.reasoning || ''
+      response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: b64, mediaType, apiKey: key }),
       });
-      toast('Analysis saved to history', 'success');
-    } catch (e) {
-      console.error(e);
-      toast('Analysis failed: ' + e.message, 'error');
-      panelAI.innerHTML = '<div class="panel-title">AI ANALYSIS</div><div style="color:#fca5a5">❌ ' + (e.message || 'Unknown error') + '</div>';
+      data = await response.json();
+    } catch (fetchErr) {
+      // Fallback: call Claude API directly from browser (requires CORS — may fail on some browsers)
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':         'application/json',
+          'x-api-key':            key,
+          'anthropic-version':    '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify(buildClaudePayload(b64, mediaType)),
+      });
+      data = await response.json();
     }
-    btn.disabled = false;
-    btn.innerHTML = '<div class="scan-line"></div>🔍 ANALYZE LOCATION';
-  });
+
+    if (!response.ok) throw new Error(data.error?.message || 'API error ' + response.status);
+
+    const text = data.content?.[0]?.text || data.text || '';
+    const parsed = parseAIResponse(text);
+    renderAIResult(parsed, text);
+
+  } catch (err) {
+    console.error('AI analysis error:', err);
+    aiContent.innerHTML = `<div class="ai-result" style="color:var(--neon-red);">
+      <strong>Analysis failed:</strong><br>${escapeHtml(err.message)}<br><br>
+      <span style="color:var(--text-muted);font-size:12px;">
+        Make sure your API key is valid and has vision model access.
+      </span>
+    </div>`;
+    aiStatus.textContent = 'ERROR';
+    aiStatus.className   = 'exif-badge badge-red';
+  }
+
+  runAIBtn.disabled = false;
+  runAIBtn.textContent = 'Run AI Analysis →';
 }
 
-function renderExif(exif) {
-  const rows = GT_Geo.formatExifForDisplay(exif);
-  const tbody = document.getElementById('exif-body');
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="2" style="color:var(--muted)">No EXIF data found</td></tr>'; return; }
-  tbody.innerHTML = rows.map(r => `<tr><td>${r.label}</td><td>${escHtml(String(r.value))}</td></tr>`).join('');
+function buildClaudePayload(imageBase64, mediaType) {
+  return {
+    model:      'claude-opus-4-5',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type:   'image',
+          source: { type: 'base64', media_type: mediaType, data: imageBase64 },
+        },
+        {
+          type: 'text',
+          text: `You are a geolocation expert. Analyze this image and determine where it was taken.
+
+Look for:
+- Landmarks, monuments, famous buildings
+- Street signs, license plates, text in any language
+- Architectural style and building materials
+- Vegetation, terrain, climate indicators
+- Traffic, road markings, vehicle types
+- Cultural markers, clothing, signage style
+
+Respond in exactly this JSON format (no markdown, raw JSON only):
+{
+  "location": "City, Country",
+  "confidence": 85,
+  "region": "Specific neighborhood or area if known",
+  "reasoning": "2-3 sentences explaining visual clues",
+  "lat": null_or_decimal,
+  "lng": null_or_decimal
 }
 
-function renderAIResult(r, method) {
-  const panel = document.getElementById('panel-ai');
-  panel.innerHTML = `<div class="panel-title">AI ANALYSIS</div>
-  <div class="ai-result">
-    <div><span class="ai-method">${method}</span></div>
-    <div class="ai-loc">📍 ${escHtml(r.location)}</div>
-    <div class="ai-conf-row">
-      <div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${r.confidence}%"></div></div>
-      <span class="ai-conf-pct">${r.confidence}%</span>
+If you cannot determine the location at all, set confidence to 0 and location to "Unknown".`,
+        },
+      ],
+    }],
+  };
+}
+
+function parseAIResponse(text) {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch {}
+  return { location: 'Unknown', confidence: 0, reasoning: text, lat: null, lng: null };
+}
+
+function renderAIResult(parsed, rawText) {
+  const conf = parsed.confidence || 0;
+  const loc  = parsed.location  || 'Unknown';
+  const lat  = parsed.lat;
+  const lng  = parsed.lng;
+
+  aiStatus.textContent = 'COMPLETE';
+  aiStatus.className   = 'exif-badge badge-green';
+
+  aiContent.innerHTML = `
+    <div class="ai-result">
+      <h4>📍 ${escapeHtml(loc)}</h4>
+      ${parsed.region ? `<div style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">${escapeHtml(parsed.region)}</div>` : ''}
+      <div class="ai-confidence">🎯 ${conf}% CONFIDENCE</div>
+      <p>${escapeHtml(parsed.reasoning || 'No reasoning provided.')}</p>
+      ${lat && lng ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-cyan);">Estimated: ${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E</div>` : ''}
     </div>
-    ${r.reasoning ? `<div class="ai-reasoning">${escHtml(r.reasoning)}</div>` : ''}
-  </div>`;
+  `;
+
+  // Show on map if we have coordinates and no GPS was found
+  if (lat && lng && !hasGPSResult()) {
+    showMap(lat, lng);
+    showLocationResult({ lat, lng, address: loc, source: 'Claude AI', confidence: conf });
+    lastResult = { lat, lng, address: loc, source: 'ai', confidence: conf, aiSummary: parsed.reasoning };
+    saveResultToFirebase(loc, conf);
+  }
+
+  toast(`AI located: ${loc} (${conf}% confidence)`, 'success');
 }
 
-function setupMap() {
-  leafletMap = L.map('gt-map', { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19
-  }).addTo(leafletMap);
+function hasGPSResult() {
+  return locationResult.style.display === 'flex' && resultSource.textContent.includes('EXIF');
 }
 
-function renderMap(lat, lon, label) {
-  if (!leafletMap) return;
-  if (leafletMarker) leafletMarker.remove();
-  leafletMap.setView([lat, lon], 13);
-  leafletMarker = L.marker([lat, lon]).addTo(leafletMap).bindPopup(label || '').openPopup();
+/* ================================================================
+   FIREBASE HISTORY
+   ================================================================ */
+async function saveResultToFirebase(address, confidence) {
+  if (!currentUser || !currentFile) return;
+  try {
+    const flat = currentExif ? flattenExif(currentExif) : null;
+    await saveSearch(currentUser.uid, {
+      filename:   currentFile.name,
+      lat:        lastResult?.lat,
+      lng:        lastResult?.lng,
+      address:    address,
+      source:     lastResult?.source || 'exif',
+      aiSummary:  lastResult?.aiSummary || null,
+      confidence: confidence || null,
+      exifData:   flat ? JSON.stringify(flat).slice(0, 2000) : null,
+    });
+    loadHistory();
+  } catch (err) {
+    console.warn('Failed to save to Firebase:', err);
+  }
 }
 
 async function loadHistory() {
-  const container = document.getElementById('history-list');
-  container.innerHTML = '<div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div>';
+  if (!currentUser) return;
+  historyList.innerHTML = `<div class="history-empty"><div class="spinner"></div></div>`;
   try {
-    const items = await GT_Geo.getHistory(window._db, currentUser.uid);
-    if (!items.length) { container.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:20px 0">No searches yet. Analyze a photo to get started.</div>'; return; }
-    container.innerHTML = items.map(item => `
-      <div class="hist-card" onclick="showHistoryItem('${item.id}')">
-        <div class="hist-thumb"><div style="width:100%;height:100%;background:rgba(124,58,237,.1);display:flex;align-items:center;justify-content:center;font-size:20px">📸</div></div>
-        <div>
-          <div class="hist-title">${escHtml(item.fileName || 'Unknown file')}</div>
-          <div class="hist-loc">📍 ${escHtml(item.location || '—')}</div>
-          <div class="hist-date">${item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : '—'}</div>
+    const searches = await getMySearches(currentUser.uid, 15);
+    if (!searches.length) {
+      historyList.innerHTML = `<div class="history-empty">No searches yet. Upload a photo to get started!</div>`;
+      return;
+    }
+
+    historyList.innerHTML = searches.map((s) => {
+      const icon = s.source === 'exif' ? '🛰️' : s.source === 'ai' ? '🤖' : '❓';
+      const srcClass = `src-${s.source || 'none'}`;
+      const srcLabel = (s.source || 'none').toUpperCase();
+      const addr = s.address ? s.address.split(',').slice(0, 2).join(',') : 'Unknown location';
+      return `
+        <div class="history-item">
+          <span class="history-item-icon">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="history-item-name">${escapeHtml(s.filename || 'Image')}</div>
+            <div class="history-item-addr">${escapeHtml(addr)}</div>
+          </div>
+          <span class="history-item-src ${srcClass}">${srcLabel}</span>
         </div>
-        <span class="conf-badge">${item.confidence || 0}%</span>
-      </div>`).join('');
-  } catch (e) {
-    container.innerHTML = '<div style="color:#fca5a5;font-size:14px">Failed to load history: ' + e.message + '</div>';
+      `;
+    }).join('');
+  } catch (err) {
+    historyList.innerHTML = `<div class="history-empty" style="color:var(--neon-red);">Failed to load history</div>`;
   }
 }
 
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+refreshHistBtn.addEventListener('click', loadHistory);
+
+/* ================================================================
+   UTILITIES
+   ================================================================ */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
+
+function flattenExif(exif) {
+  const flat = {};
+  if (!exif) return flat;
+  Object.entries(exif).forEach(([, section]) => {
+    if (section && typeof section === 'object') {
+      Object.entries(section).forEach(([k, v]) => {
+        if (typeof v !== 'object') flat[k] = v;
+      });
+    }
+  });
+  return flat;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ================================================================
+   INIT
+   ================================================================ */
+loadApiKey();
+setupUpload();
